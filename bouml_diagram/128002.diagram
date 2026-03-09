@@ -1,0 +1,48 @@
+format 224
+
+classcanvas 128002 class_ref 128002 // Patient
+  classdiagramsettings show_members_full_definition yes show_members_visibility yes show_members_stereotype yes show_members_multiplicity yes show_members_initialization yes member_max_width 0 end
+  color lightmagenta
+  xyz 72.5 74.1 2000
+end
+classcanvas 128130 class_ref 128130 // Doctor
+  classdiagramsettings show_members_full_definition yes show_members_visibility yes show_members_stereotype yes show_members_multiplicity yes show_members_initialization yes show_attribute_modifiers yes member_max_width 0 show_parameter_dir yes show_parameter_name yes end
+  color blue
+  xyz 345.2 183.1 2000
+end
+classcanvas 128258 class_ref 128258 // Appointment
+  classdiagramsettings show_members_full_definition yes show_members_visibility yes show_members_stereotype yes show_members_multiplicity yes show_members_initialization yes show_attribute_modifiers yes member_max_width 0 show_parameter_dir yes show_parameter_name yes end
+  color green
+  xyz 338.9 557.1 2000
+end
+classcanvas 128386 class_ref 128386 // Schedule
+  classdiagramsettings show_members_full_definition yes show_members_visibility yes show_members_stereotype yes show_members_multiplicity yes show_members_initialization yes show_attribute_modifiers yes member_max_width 0 show_parameter_dir yes show_parameter_name yes end
+  color darkgray
+  xyz 619.6 458.9 2000
+end
+classcanvas 128514 class_ref 128514 // Warning
+  classdiagramsettings show_members_full_definition yes show_members_visibility yes show_members_stereotype yes show_members_multiplicity yes show_members_initialization yes show_attribute_modifiers yes member_max_width 0 show_parameter_dir yes show_parameter_name yes end
+  color lightred
+  xyz 90 659.8 2000
+end
+relationcanvas 128642 relation_ref 128002 // <association>
+  from ref 128002 z 2001 to ref 128258
+  no_role_a no_role_b
+  multiplicity_a_pos 345 521 3000 multiplicity_b_pos 214 320 3000
+end
+relationcanvas 128770 relation_ref 128130 // <association>
+  from ref 128130 z 2001 to ref 128258
+  no_role_a no_role_b
+  multiplicity_a_pos 410 521 3000 multiplicity_b_pos 413 318 3000
+end
+relationcanvas 128898 relation_ref 128258 // <association>
+  from ref 128002 z 2001 to ref 128514
+  no_role_a no_role_b
+  multiplicity_a_pos 132 625 3000 multiplicity_b_pos 134 320 3000
+end
+relationcanvas 129026 relation_ref 128386 // <association>
+  from ref 128130 z 2001 to ref 128386
+  no_role_a no_role_b
+  multiplicity_a_pos 600 424 3000 multiplicity_b_pos 486 318 3000
+end
+end
