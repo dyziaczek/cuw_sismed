@@ -1,0 +1,12 @@
+window_sizes 2400 1218 600 1795 1055 104
+
+diagrams
+  active  classdiagram_ref 128002 // Main_diagram
+    1450 909 100 A4 0 0
+end
+show_stereotypes
+selected class_ref 128514 // Warning
+open
+  classview_ref 128002 // C_VIEW
+end
+end
