@@ -38,6 +38,8 @@ namespace VS_CUWSISMED
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.txtpassword = new Guna.UI2.WinForms.Guna2TextBox();
             this.guna2Elipse1 = new Guna.UI2.WinForms.Guna2Elipse(this.components);
+            this.guna2Elipse2 = new Guna.UI2.WinForms.Guna2Elipse(this.components);
+            this.bttnshowpassword = new Guna.UI2.WinForms.Guna2Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -111,7 +113,7 @@ namespace VS_CUWSISMED
             // pictureBox1
             // 
             this.pictureBox1.BackColor = System.Drawing.Color.Transparent;
-            this.pictureBox1.BackgroundImage = global::VS_CUWSISMED.Properties.Resources._222;
+            this.pictureBox1.BackgroundImage = global::VS_CUWSISMED.Properties.Resources.LOGO;
             this.pictureBox1.Location = new System.Drawing.Point(82, 22);
             this.pictureBox1.Name = "pictureBox1";
             this.pictureBox1.Size = new System.Drawing.Size(468, 168);
@@ -130,12 +132,12 @@ namespace VS_CUWSISMED
             this.txtpassword.DisabledState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(138)))), ((int)(((byte)(138)))), ((int)(((byte)(138)))));
             this.txtpassword.DisabledState.PlaceholderForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(138)))), ((int)(((byte)(138)))), ((int)(((byte)(138)))));
             this.txtpassword.FocusedState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
-            this.txtpassword.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.txtpassword.Font = new System.Drawing.Font("Segoe UI", 11.25F);
             this.txtpassword.ForeColor = System.Drawing.Color.DimGray;
             this.txtpassword.HoverState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
             this.txtpassword.IconLeft = global::VS_CUWSISMED.Properties.Resources._lock;
             this.txtpassword.IconLeftSize = new System.Drawing.Size(18, 18);
-            this.txtpassword.IconRight = global::VS_CUWSISMED.Properties.Resources.visible_opened_eye_interface_option;
+            this.txtpassword.IconRightCursor = System.Windows.Forms.Cursors.Hand;
             this.txtpassword.IconRightSize = new System.Drawing.Size(18, 18);
             this.txtpassword.Location = new System.Drawing.Point(165, 247);
             this.txtpassword.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
@@ -154,14 +156,44 @@ namespace VS_CUWSISMED
             this.guna2Elipse1.BorderRadius = 150;
             this.guna2Elipse1.TargetControl = this;
             // 
+            // guna2Elipse2
+            // 
+            this.guna2Elipse2.BorderRadius = 200;
+            this.guna2Elipse2.TargetControl = this.pictureBox1;
+            // 
+            // bttnshowpassword
+            // 
+            this.bttnshowpassword.AutoRoundedCorners = true;
+            this.bttnshowpassword.BackColor = System.Drawing.Color.White;
+            this.bttnshowpassword.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Stretch;
+            this.bttnshowpassword.BorderColor = System.Drawing.Color.Transparent;
+            this.bttnshowpassword.BorderRadius = 14;
+            this.bttnshowpassword.DisabledState.BorderColor = System.Drawing.Color.DarkGray;
+            this.bttnshowpassword.DisabledState.CustomBorderColor = System.Drawing.Color.DarkGray;
+            this.bttnshowpassword.DisabledState.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(169)))), ((int)(((byte)(169)))), ((int)(((byte)(169)))));
+            this.bttnshowpassword.DisabledState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(141)))), ((int)(((byte)(141)))), ((int)(((byte)(141)))));
+            this.bttnshowpassword.FillColor = System.Drawing.Color.Transparent;
+            this.bttnshowpassword.Font = new System.Drawing.Font("Segoe UI", 8.25F);
+            this.bttnshowpassword.ForeColor = System.Drawing.Color.White;
+            this.bttnshowpassword.Image = global::VS_CUWSISMED.Properties.Resources.open_eye;
+            this.bttnshowpassword.ImageSize = new System.Drawing.Size(18, 18);
+            this.bttnshowpassword.Location = new System.Drawing.Point(431, 250);
+            this.bttnshowpassword.Name = "bttnshowpassword";
+            this.bttnshowpassword.PressedColor = System.Drawing.Color.Transparent;
+            this.bttnshowpassword.RightToLeft = System.Windows.Forms.RightToLeft.No;
+            this.bttnshowpassword.Size = new System.Drawing.Size(31, 30);
+            this.bttnshowpassword.TabIndex = 6;
+            this.bttnshowpassword.Click += new System.EventHandler(this.bttnshowpassword_Click);
+            // 
             // login_page
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.Black;
-            this.BackgroundImage = global::VS_CUWSISMED.Properties.Resources.LOGINN;
+            this.BackgroundImage = global::VS_CUWSISMED.Properties.Resources.LOGIN;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.ClientSize = new System.Drawing.Size(616, 410);
+            this.Controls.Add(this.bttnshowpassword);
             this.Controls.Add(this.txtpassword);
             this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.bttnlogin);
@@ -192,6 +224,8 @@ namespace VS_CUWSISMED
         private System.Windows.Forms.PictureBox pictureBox1;
         private Guna.UI2.WinForms.Guna2TextBox txtpassword;
         private Guna.UI2.WinForms.Guna2Elipse guna2Elipse1;
+        private Guna.UI2.WinForms.Guna2Elipse guna2Elipse2;
+        private Guna.UI2.WinForms.Guna2Button bttnshowpassword;
     }
 }
 

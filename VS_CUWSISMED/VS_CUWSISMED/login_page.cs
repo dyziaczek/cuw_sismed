@@ -14,6 +14,8 @@ namespace VS_CUWSISMED
 {
     public partial class login_page : Form
     {
+        private const bool @true = true;
+
         [DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
 
@@ -24,6 +26,9 @@ namespace VS_CUWSISMED
         {
             InitializeComponent();
             this.MouseDown += MoveForm;
+
+            txtpassword.PasswordChar = '●';
+            txtpassword.UseSystemPasswordChar = false;
         }
         private void MoveForm(object sender, MouseEventArgs e)
         {
@@ -32,11 +37,6 @@ namespace VS_CUWSISMED
                 ReleaseCapture();
                 SendMessage(this.Handle, 0x112, 0xf012, 0);
             }
-        }
-
-        private void guna2TextBox2_TextChanged(object sender, EventArgs e)
-        {
-
         }
 
         private void bttnlogin_Click(object sender, EventArgs e)
@@ -60,6 +60,21 @@ namespace VS_CUWSISMED
         {
 
         }
+        private bool pokazHaslo = false;
+        private void bttnshowpassword_Click(object sender, EventArgs e)
+        {
+            pokazHaslo = !pokazHaslo;
+            
+            if (pokazHaslo)
+            {
+                txtpassword.PasswordChar = '\0';
+                bttnshowpassword.Image = Properties.Resources.eye_lined;
+            }
+            else
+            {
+                txtpassword.PasswordChar = '●';
+                bttnshowpassword.Image = Properties.Resources.open_eye;
+            }
+        }
     }
-
 }
