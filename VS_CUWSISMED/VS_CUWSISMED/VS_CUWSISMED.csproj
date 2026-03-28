@@ -74,6 +74,12 @@
     <EmbeddedResource Include="login_page.resx">
       <DependentUpon>login_page.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="mainapp.aa-DJ.resx">
+      <DependentUpon>mainapp.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="mainapp.pl-PL.resx">
+      <DependentUpon>mainapp.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="mainapp.resx">
       <DependentUpon>mainapp.cs</DependentUpon>
     </EmbeddedResource>
@@ -121,6 +127,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\open_eye.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\background.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

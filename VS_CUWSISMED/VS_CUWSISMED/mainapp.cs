@@ -10,9 +10,9 @@ using System.Windows.Forms;
 
 namespace VS_CUWSISMED
 {
-    public partial class mainapp : Form
+    public partial class CUW_SISMED : Form
     {
-        public mainapp()
+        public CUW_SISMED()
         {
             InitializeComponent();
         }

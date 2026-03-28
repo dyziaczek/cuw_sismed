@@ -46,7 +46,7 @@ namespace VS_CUWSISMED
 
             if (login == "rejestrator" && haslo == "admin")
             {
-                mainapp frm = new mainapp();
+                CUW_SISMED frm = new CUW_SISMED();
                 frm.Show();
                 this.Hide();
             }

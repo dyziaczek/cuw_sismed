@@ -153,7 +153,7 @@ namespace VS_CUWSISMED
             // 
             // guna2Elipse1
             // 
-            this.guna2Elipse1.BorderRadius = 150;
+            this.guna2Elipse1.BorderRadius = 160;
             this.guna2Elipse1.TargetControl = this;
             // 
             // guna2Elipse2
@@ -205,7 +205,7 @@ namespace VS_CUWSISMED
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "login_page";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Form1";
+            this.Text = "                                       ";
             this.Load += new System.EventHandler(this.login_page_Load);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);

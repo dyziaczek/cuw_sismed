@@ -13,4 +13,4 @@ namespace VS_CUWSISMED
             Application.Run(new login_page()); // <- startowe okno
         }
     }
-}
+}                                                                                    
