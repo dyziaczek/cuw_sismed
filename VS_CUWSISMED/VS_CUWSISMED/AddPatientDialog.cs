@@ -28,7 +28,7 @@ namespace VS_CUWSISMED
             MaximizeBox = false;
             MinimizeBox = false;
             ClientSize = new Size(420, 460);
-            BackColor = Color.FromArgb(10, 12, 35);
+            BackColor = SismedTheme.Surface;
 
             txtFirstName = CreateTextBox("Imie", 24);
             txtLastName = CreateTextBox("Nazwisko", 72);
@@ -45,10 +45,9 @@ namespace VS_CUWSISMED
                 Location = new Point(210, 414),
                 Size = new Size(84, 32),
                 BorderRadius = 8,
-                FillColor = Color.FromArgb(0, 130, 110),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
             };
+            SismedTheme.ApplySuccessButton(btnSave);
             btnSave.Click += btnSave_Click;
 
             btnCancel = new Guna2Button
@@ -57,10 +56,9 @@ namespace VS_CUWSISMED
                 Location = new Point(304, 414),
                 Size = new Size(84, 32),
                 BorderRadius = 8,
-                FillColor = Color.FromArgb(50, 55, 85),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
             };
+            SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
             {
                 DialogResult = DialogResult.Cancel;
@@ -76,16 +74,16 @@ namespace VS_CUWSISMED
 
         private Guna2TextBox CreateTextBox(string placeholder, int top)
         {
-            return new Guna2TextBox
+            var textBox = new Guna2TextBox
             {
                 Location = new Point(24, top),
                 Size = new Size(364, 36),
                 PlaceholderText = placeholder,
-                Font = new Font("Segoe UI", 9f),
-                BorderColor = Color.FromArgb(40, 50, 120),
-                FocusedState = { BorderColor = Color.FromArgb(220, 0, 150) },
                 BorderThickness = 2
             };
+
+            SismedTheme.ApplyTextBox(textBox);
+            return textBox;
         }
 
         private void btnSave_Click(object sender, EventArgs e)

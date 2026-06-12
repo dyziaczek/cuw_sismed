@@ -31,7 +31,7 @@ namespace VS_CUWSISMED
             ((System.ComponentModel.ISupportInitialize)(dgvCalendar)).BeginInit();
             SuspendLayout();
 
-            BackColor = Color.FromArgb(10, 12, 35);
+            BackColor = SismedTheme.Surface;
             ClientSize = new Size(760, 520);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -42,21 +42,29 @@ namespace VS_CUWSISMED
             cmbDoctor.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbDoctor.Location = new Point(18, 18);
             cmbDoctor.Size = new Size(260, 24);
+            cmbDoctor.Font = SismedTheme.Font(9f);
+            cmbDoctor.BackColor = SismedTheme.Card;
+            cmbDoctor.ForeColor = SismedTheme.Text;
 
             dtpDate.CustomFormat = "dd.MM.yyyy";
             dtpDate.Format = DateTimePickerFormat.Custom;
             dtpDate.Location = new Point(294, 18);
             dtpDate.Size = new Size(130, 22);
+            dtpDate.Font = SismedTheme.Font(9f);
 
             btnLoad.Location = new Point(438, 16);
             btnLoad.Size = new Size(120, 28);
             btnLoad.Text = "Pokaz";
-            btnLoad.UseVisualStyleBackColor = true;
+            btnLoad.BackColor = SismedTheme.Magenta;
+            btnLoad.FlatAppearance.BorderSize = 0;
+            btnLoad.FlatStyle = FlatStyle.Flat;
+            btnLoad.Font = SismedTheme.Font(9f, FontStyle.Bold);
+            btnLoad.ForeColor = Color.White;
+            btnLoad.UseVisualStyleBackColor = false;
             btnLoad.Click += btnLoad_Click;
 
             dgvCalendar.AllowUserToAddRows = false;
             dgvCalendar.AllowUserToDeleteRows = false;
-            dgvCalendar.BackgroundColor = Color.FromArgb(10, 12, 35);
             dgvCalendar.BorderStyle = BorderStyle.None;
             dgvCalendar.ColumnHeadersHeight = 32;
             dgvCalendar.Location = new Point(18, 58);
@@ -83,6 +91,7 @@ namespace VS_CUWSISMED
                 HeaderText = "Status",
                 Width = 160
             });
+            SismedTheme.ApplyGrid(dgvCalendar);
 
             Controls.Add(cmbDoctor);
             Controls.Add(dtpDate);

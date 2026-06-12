@@ -13,6 +13,8 @@ namespace VS_CUWSISMED
         [DllImport("user32.dll")]
         public static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 
+        public Employee AuthenticatedEmployee { get; private set; }
+
         public login_page()
         {
             InitializeComponent();
@@ -36,16 +38,9 @@ namespace VS_CUWSISMED
 
             if (employee != null)
             {
-                main_app frm = new main_app(employee);
-                frm.FormClosed += (closedSender, args) =>
-                {
-                    if (!IsDisposed)
-                    {
-                        Show();
-                    }
-                };
-                frm.Show(this);
-                Hide();
+                AuthenticatedEmployee = employee;
+                DialogResult = DialogResult.OK;
+                Close();
             }
             else
             {
@@ -71,14 +66,6 @@ namespace VS_CUWSISMED
             {
                 txtpassword.PasswordChar = '●';
                 bttnshowpassword.Image = Properties.Resources.open_eye;
-            }
-        }
-
-        private void bttnregister_Click(object sender, EventArgs e)
-        {
-            using (var dialog = new RegisterEmployeeDialog())
-            {
-                dialog.ShowDialog(this);
             }
         }
     }

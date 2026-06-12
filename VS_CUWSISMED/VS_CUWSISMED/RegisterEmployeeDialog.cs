@@ -38,7 +38,7 @@ namespace VS_CUWSISMED
             MaximizeBox = false;
             MinimizeBox = false;
             ClientSize = new Size(460, 570);
-            BackColor = Color.FromArgb(10, 12, 35);
+            BackColor = SismedTheme.Surface;
 
             txtLogin = CreateTextBox("Login", 24);
             txtFirstName = CreateTextBox("Imie", 72);
@@ -51,14 +51,16 @@ namespace VS_CUWSISMED
                 Size = new Size(392, 28),
                 CustomFormat = "dd.MM.yyyy",
                 Format = DateTimePickerFormat.Custom,
-                Value = DateTime.Today.AddYears(-30)
+                Value = DateTime.Today.AddYears(-30),
+                Font = SismedTheme.Font(9f)
             };
 
             cmbRole = new ComboBox
             {
                 Location = new Point(24, 264),
                 Size = new Size(392, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = SismedTheme.Font(9f)
             };
             cmbRole.Items.Add(EmployeeRoles.Reception);
             cmbRole.Items.Add(EmployeeRoles.Administrator);
@@ -70,7 +72,8 @@ namespace VS_CUWSISMED
                 Text = "Pracownik jest lekarzem",
                 Location = new Point(24, 312),
                 Size = new Size(220, 24),
-                ForeColor = Color.White,
+                ForeColor = SismedTheme.Text,
+                Font = SismedTheme.Font(9f),
                 BackColor = Color.Transparent
             };
             chkDoctor.CheckedChanged += (sender, args) =>
@@ -92,10 +95,9 @@ namespace VS_CUWSISMED
                 Location = new Point(190, 500),
                 Size = new Size(142, 34),
                 BorderRadius = 8,
-                FillColor = Color.FromArgb(0, 130, 110),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
+                ForeColor = Color.White
             };
+            SismedTheme.ApplySuccessButton(btnRegister);
             btnRegister.Click += btnRegister_Click;
 
             btnCancel = new Guna2Button
@@ -104,10 +106,9 @@ namespace VS_CUWSISMED
                 Location = new Point(340, 500),
                 Size = new Size(76, 34),
                 BorderRadius = 8,
-                FillColor = Color.FromArgb(50, 55, 85),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
+                ForeColor = Color.White
             };
+            SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
             {
                 DialogResult = DialogResult.Cancel;
@@ -124,16 +125,16 @@ namespace VS_CUWSISMED
 
         private Guna2TextBox CreateTextBox(string placeholder, int top)
         {
-            return new Guna2TextBox
+            var textBox = new Guna2TextBox
             {
                 Location = new Point(24, top),
                 Size = new Size(392, 36),
                 PlaceholderText = placeholder,
-                Font = new Font("Segoe UI", 9f),
-                BorderColor = Color.FromArgb(40, 50, 120),
-                FocusedState = { BorderColor = Color.FromArgb(220, 0, 150) },
                 BorderThickness = 2
             };
+
+            SismedTheme.ApplyTextBox(textBox);
+            return textBox;
         }
 
         private void btnRegister_Click(object sender, EventArgs e)

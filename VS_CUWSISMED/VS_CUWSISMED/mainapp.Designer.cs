@@ -23,18 +23,19 @@ namespace VS_CUWSISMED
         {
             components = new System.ComponentModel.Container();
 
-            Color navy = Color.FromArgb(8, 21, 64);
-            Color blue = Color.FromArgb(26, 72, 168);
-            Color magenta = Color.FromArgb(218, 0, 148);
-            Color surface = Color.FromArgb(246, 248, 252);
-            Color card = Color.White;
-            Color border = Color.FromArgb(218, 225, 238);
-            Color text = Color.FromArgb(22, 32, 58);
-            Color muted = Color.FromArgb(91, 103, 128);
+            Color navy = SismedTheme.Navy;
+            Color blue = SismedTheme.Blue;
+            Color magenta = SismedTheme.Magenta;
+            Color surface = SismedTheme.Surface;
+            Color card = SismedTheme.Card;
+            Color border = SismedTheme.Border;
+            Color text = SismedTheme.Text;
+            Color muted = SismedTheme.Muted;
+            Color navInactive = SismedTheme.NavyDark;
 
-            Font navFont = new Font("Segoe UI", 10f, FontStyle.Bold);
-            Font labelFont = new Font("Segoe UI", 9f, FontStyle.Bold);
-            Font normalFont = new Font("Segoe UI", 9f);
+            Font navFont = SismedTheme.Font(10f, FontStyle.Bold);
+            Font labelFont = SismedTheme.Font(9f, FontStyle.Bold);
+            Font normalFont = SismedTheme.Font(9f);
 
             SuspendLayout();
 
@@ -50,33 +51,50 @@ namespace VS_CUWSISMED
             pnlNavigation = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 260,
+                Width = SismedTheme.SidebarWidth,
                 BackColor = navy
+            };
+
+            pnlLogoWrap = new Panel
+            {
+                Location = new Point(18, 20),
+                Size = new Size(240, 88),
+                BackColor = SismedTheme.Card,
+                Padding = new Padding(8)
             };
 
             picLogo = new PictureBox
             {
                 Image = Properties.Resources.LOGO,
                 SizeMode = PictureBoxSizeMode.Zoom,
-                Location = new Point(18, 20),
-                Size = new Size(224, 88),
+                Dock = DockStyle.Fill,
                 BackColor = Color.Transparent
             };
+            pnlLogoWrap.Controls.Add(picLogo);
 
             lblNavTitle = new Label
             {
                 Text = "Centrum Umawiania Wizyt",
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(176, 193, 230),
-                Location = new Point(22, 112),
-                Size = new Size(216, 20),
+                Font = SismedTheme.Font(8.5f, FontStyle.Bold),
+                ForeColor = SismedTheme.SidebarMuted,
+                Location = new Point(22, 118),
+                Size = new Size(232, 20),
                 TextAlign = ContentAlignment.MiddleCenter
             };
 
-            btnNavCalendar = CreateNavButton("KALENDARZ WIZYT", 170, navFont, blue);
-            btnNavReception = CreateNavButton("RECEPCJA", 222, navFont, magenta);
-            btnNavDocuments = CreateNavButton("DOKUMENTY", 274, navFont, blue);
-            btnNavPersonnel = CreateNavButton("PERSONEL", 326, navFont, blue);
+            lblNavSection = new Label
+            {
+                Text = "MENU",
+                Font = SismedTheme.Font(8.5f, FontStyle.Bold),
+                ForeColor = SismedTheme.SidebarMuted,
+                Location = new Point(28, 160),
+                Size = new Size(210, 18)
+            };
+
+            btnNavCalendar = CreateNavButton("KALENDARZ WIZYT", 190, navFont, navInactive);
+            btnNavReception = CreateNavButton("RECEPCJA", 242, navFont, magenta);
+            btnNavDocuments = CreateNavButton("DOKUMENTY", 294, navFont, navInactive);
+            btnNavPersonnel = CreateNavButton("PERSONEL", 346, navFont, navInactive);
             btnNavCalendar.Click += btnNavCalendar_Click;
             btnNavReception.Click += btnNavReception_Click;
             btnNavDocuments.Click += btnNavDocuments_Click;
@@ -92,14 +110,14 @@ namespace VS_CUWSISMED
                 BorderThickness = 1,
                 BorderRadius = 8,
                 Location = new Point(20, 690),
-                Size = new Size(220, 38),
+                Size = new Size(236, 38),
                 Anchor = AnchorStyles.Left | AnchorStyles.Bottom
             };
             btnLogout.Click += btnLogout_Click;
 
             pnlNavigation.Controls.AddRange(new Control[]
             {
-                picLogo, lblNavTitle,
+                pnlLogoWrap, lblNavTitle, lblNavSection,
                 btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel,
                 btnLogout
             });
@@ -113,14 +131,14 @@ namespace VS_CUWSISMED
             pnlTopBar = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 64,
+                Height = 72,
                 BackColor = Color.White
             };
 
             lblScreenTitle = new Label
             {
                 Text = "RECEPCJA",
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                Font = SismedTheme.Font(17f, FontStyle.Bold),
                 ForeColor = navy,
                 Location = new Point(24, 16),
                 Size = new Size(420, 32)
@@ -129,7 +147,7 @@ namespace VS_CUWSISMED
             lblCurrentUser = new Label
             {
                 Text = "",
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = SismedTheme.Font(9f, FontStyle.Bold),
                 ForeColor = muted,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(600, 19),
@@ -140,7 +158,7 @@ namespace VS_CUWSISMED
             btnClose = new Guna2Button
             {
                 Text = "X",
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Font = SismedTheme.Font(10f, FontStyle.Bold),
                 ForeColor = Color.White,
                 FillColor = magenta,
                 BorderRadius = 8,
@@ -161,7 +179,7 @@ namespace VS_CUWSISMED
             {
                 Dock = DockStyle.Fill,
                 BackColor = surface,
-                Padding = new Padding(24)
+                Padding = new Padding(SismedTheme.Padding)
             };
 
             BuildReceptionScreen(card, border, text, muted, magenta, blue, labelFont, normalFont);
@@ -188,18 +206,21 @@ namespace VS_CUWSISMED
 
         private Guna2Button CreateNavButton(string text, int top, Font font, Color fill)
         {
-            return new Guna2Button
+            var button = new Guna2Button
             {
                 Text = text,
                 Font = font,
                 ForeColor = Color.White,
                 FillColor = fill,
-                BorderRadius = 8,
+                BorderRadius = SismedTheme.Radius,
                 Location = new Point(20, top),
-                Size = new Size(220, 40),
+                Size = new Size(SismedTheme.SidebarWidth - 40, 44),
                 TextAlign = HorizontalAlignment.Left,
-                Padding = new Padding(12, 0, 0, 0)
+                Padding = new Padding(16, 0, 0, 0),
+                Image = null
             };
+            button.HoverState.FillColor = fill == SismedTheme.Magenta ? SismedTheme.Magenta : SismedTheme.Blue;
+            return button;
         }
 
         private void BuildReceptionScreen(
@@ -217,38 +238,55 @@ namespace VS_CUWSISMED
             pnlReceptionSidebar = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 340,
+                Width = 360,
+                AutoScroll = true,
                 BackColor = card,
                 Padding = new Padding(18)
             };
 
-            var lblSearch = new Label
+            var pnlSearchAccent = new Panel
             {
-                Text = "WYSZUKAJ PACJENTA",
-                Font = labelFont,
-                ForeColor = muted,
-                Location = new Point(18, 18),
-                Size = new Size(292, 20)
+                BackColor = SismedTheme.Magenta,
+                Location = new Point(18, 20),
+                Size = new Size(5, 46)
             };
 
-            txtPatientPesel = CreateTextBox("PESEL", 18, 48, 292);
-            txtPatientFirstName = CreateTextBox("Imie", 18, 90, 140);
-            txtPatientLastName = CreateTextBox("Nazwisko", 170, 90, 140);
-            txtPatientBirthDate = CreateTextBox("Data urodzenia dd.MM.yyyy", 18, 132, 292);
-            txtPatientPhone = CreateTextBox("Telefon", 18, 174, 140);
-            txtPatientEmail = CreateTextBox("E-mail", 170, 174, 140);
-            btnSearch = CreateActionButton("Szukaj", 18, 222, 140, magenta);
+            var lblSearch = new Label
+            {
+                Text = "Wyszukiwanie pacjenta",
+                Font = SismedTheme.Font(15f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy,
+                Location = new Point(34, 18),
+                Size = new Size(300, 28)
+            };
+
+            var lblSearchHint = new Label
+            {
+                Text = "PESEL, dane osobowe, telefon lub e-mail",
+                Font = normalFont,
+                ForeColor = muted,
+                Location = new Point(34, 48),
+                Size = new Size(300, 24)
+            };
+
+            txtPatientPesel = CreateTextBox("PESEL", 18, 92, 316);
+            txtPatientFirstName = CreateTextBox("Imie", 18, 136, 150);
+            txtPatientLastName = CreateTextBox("Nazwisko", 184, 136, 150);
+            txtPatientBirthDate = CreateTextBox("Data urodzenia dd.MM.yyyy", 18, 180, 316);
+            txtPatientPhone = CreateTextBox("Telefon", 18, 224, 150);
+            txtPatientEmail = CreateTextBox("E-mail", 184, 224, 150);
+            btnSearch = CreateActionButton("Szukaj", 18, 278, 150, magenta);
             btnSearch.Click += btnSearch_Click;
-            btnClearPatientSearch = CreateActionButton("Wyczyść", 170, 222, 140, blue);
+            btnClearPatientSearch = CreateActionButton("Wyczyść", 184, 278, 150, blue);
             btnClearPatientSearch.Click += btnClearPatientSearch_Click;
-            btnAddPatient = CreateActionButton("+ Dodaj pacjenta", 18, 270, 292, Color.FromArgb(0, 130, 110));
+            btnAddPatient = CreateActionButton("+ Dodaj pacjenta", 18, 326, 316, SismedTheme.Success);
             btnAddPatient.Click += btnAddPatient_Click;
 
             pnlPatientCard = new Panel
             {
-                BackColor = Color.FromArgb(246, 248, 252),
-                Location = new Point(18, 326),
-                Size = new Size(292, 260),
+                BackColor = SismedTheme.CardSoft,
+                Location = new Point(18, 388),
+                Size = new Size(316, 238),
                 BorderStyle = BorderStyle.FixedSingle
             };
 
@@ -259,7 +297,7 @@ namespace VS_CUWSISMED
             lblPatientEmail = CreateInfoLabel("E-mail: -", 12, 140, muted, false);
             lblPatientWarnings = CreateInfoLabel("Ostrzezenia: 0/3", 12, 166, muted, false);
             lblPatientNotes = CreateInfoLabel("Notatka: -", 12, 192, muted, false);
-            lblPatientStatus = CreateInfoLabel("", 12, 230, Color.OrangeRed, true);
+            lblPatientStatus = CreateInfoLabel("", 12, 230, SismedTheme.Danger, true);
             pnlPatientCard.Controls.AddRange(new Control[]
             {
                 lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone,
@@ -268,28 +306,93 @@ namespace VS_CUWSISMED
 
             pnlReceptionSidebar.Controls.AddRange(new Control[]
             {
-                lblSearch, txtPatientPesel, txtPatientFirstName, txtPatientLastName,
+                pnlSearchAccent, lblSearch, lblSearchHint,
+                txtPatientPesel, txtPatientFirstName, txtPatientLastName,
                 txtPatientBirthDate, txtPatientPhone, txtPatientEmail,
                 btnSearch, btnClearPatientSearch, btnAddPatient, pnlPatientCard
             });
 
+            pnlReceptionContent = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = SismedTheme.Surface,
+                Padding = new Padding(18, 0, 0, 0)
+            };
+
+            var pnlReceptionHero = new Guna2Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 92,
+                FillColor = SismedTheme.Card,
+                BorderColor = SismedTheme.Border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Padding = new Padding(24),
+                Margin = new Padding(0, 0, 0, 12)
+            };
+            var pnlHeroAccent = new Panel
+            {
+                BackColor = SismedTheme.Magenta,
+                Dock = DockStyle.Left,
+                Width = 5
+            };
+            var lblReceptionHeading = new Label
+            {
+                Text = "Recepcja",
+                Font = SismedTheme.Font(19f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy,
+                Location = new Point(24, 18),
+                Size = new Size(320, 34)
+            };
+            var lblReceptionSubtitle = new Label
+            {
+                Text = "Szybka identyfikacja pacjenta, podgląd wizyt i podstawowe działania rejestracji.",
+                Font = SismedTheme.Font(10f),
+                ForeColor = SismedTheme.Muted,
+                Location = new Point(24, 54),
+                Size = new Size(760, 24)
+            };
+            pnlReceptionHero.Controls.Add(lblReceptionSubtitle);
+            pnlReceptionHero.Controls.Add(lblReceptionHeading);
+            pnlReceptionHero.Controls.Add(pnlHeroAccent);
+
+            pnlDashboardCards = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 122,
+                ColumnCount = 3,
+                RowCount = 1,
+                BackColor = SismedTheme.Surface,
+                Padding = new Padding(0, 14, 0, 14)
+            };
+            pnlDashboardCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            pnlDashboardCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
+            pnlDashboardCards.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34F));
+
+            lblTodayVisitsValue = new Label();
+            lblPlannedVisitsValue = new Label();
+            lblPatientsValue = new Label();
+            pnlDashboardCards.Controls.Add(CreateMetricCard("Dzisiejsze wizyty", lblTodayVisitsValue, SismedTheme.Magenta), 0, 0);
+            pnlDashboardCards.Controls.Add(CreateMetricCard("Zaplanowane wizyty", lblPlannedVisitsValue, SismedTheme.Blue), 1, 0);
+            pnlDashboardCards.Controls.Add(CreateMetricCard("Pacjenci w bazie", lblPatientsValue, SismedTheme.Success), 2, 0);
+
             tabControl = new TabControl
             {
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Font = SismedTheme.Font(10f, FontStyle.Bold),
                 Padding = new Point(16, 6)
             };
 
             tabBook = new TabPage { Text = "Umowienie wizyty", BackColor = Color.White, Padding = new Padding(16) };
             tabReserved = new TabPage { Text = "Zarezerwowane wizyty", BackColor = Color.White, Padding = new Padding(16) };
 
-            pnlBookTop = new Panel { Dock = DockStyle.Top, Height = 58, BackColor = Color.White };
+            pnlBookTop = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = Color.White };
             lblBookDoctor = CreateInlineLabel("Lekarz:", 0, 16, muted, labelFont);
             cmbDoctor = CreateComboBox(66, 10, 270);
-            lblBookDate = CreateInlineLabel("Data:", 360, 16, muted, labelFont);
-            dtpBook = CreateDatePicker(412, 10);
+            lblBookDate = CreateInlineLabel("Data:", 0, 62, muted, labelFont);
+            dtpBook = CreateDatePicker(66, 56);
             dtpBook.MinDate = DateTime.Today;
-            btnLoadSlots = CreateActionButton("Pokaż dostępne terminy", 600, 10, 220, magenta);
+            btnLoadSlots = CreateActionButton("Pokaż dostępne terminy", 232, 56, 220, magenta);
             btnLoadSlots.Click += btnLoadSlots_Click;
             pnlBookTop.Controls.AddRange(new Control[]
             {
@@ -321,23 +424,23 @@ namespace VS_CUWSISMED
             dgvReserved.Columns.Add(new DataGridViewTextBoxColumn { Name = "rStatus", HeaderText = "Status", Width = 130 });
             dgvReserved.Columns.Add(new DataGridViewTextBoxColumn { Name = "rNote", HeaderText = "Uwagi", Width = 180 });
 
-            pnlReservedActions = new Panel { Dock = DockStyle.Bottom, Height = 145, BackColor = Color.FromArgb(246, 248, 252) };
-            btnCancel = CreateActionButton("Anuluj wizytę", 16, 18, 150, Color.FromArgb(190, 40, 40));
+            pnlReservedActions = new Panel { Dock = DockStyle.Bottom, Height = 132, BackColor = SismedTheme.CardSoft };
+            btnCancel = CreateActionButton("Anuluj wizytę", 16, 16, 150, SismedTheme.Danger);
             btnCancel.Click += btnCancel_Click;
-            txtSwapSearch = CreateTextBox("PESEL / Telefon", 16, 76, 250);
-            btnSwapFind = CreateActionButton("Znajdź", 276, 76, 92, blue);
+            btnSwap = CreateActionButton("Zatwierdź zamianę", 184, 16, 180, magenta);
+            btnSwap.Enabled = false;
+            btnSwap.Click += btnSwap_Click;
+            txtSwapSearch = CreateTextBox("PESEL / Telefon", 16, 72, 250);
+            btnSwapFind = CreateActionButton("Znajdź", 276, 72, 92, blue);
             btnSwapFind.Click += btnSwapFind_Click;
             lblSwapResult = new Label
             {
                 Text = "",
-                Location = new Point(382, 82),
+                Location = new Point(382, 78),
                 Size = new Size(260, 24),
                 Font = normalFont,
-                ForeColor = Color.Green
+                ForeColor = SismedTheme.Success
             };
-            btnSwap = CreateActionButton("Zatwierdź zamianę", 660, 76, 180, magenta);
-            btnSwap.Enabled = false;
-            btnSwap.Click += btnSwap_Click;
             pnlReservedActions.Controls.AddRange(new Control[]
             {
                 btnCancel, txtSwapSearch, btnSwapFind, lblSwapResult, btnSwap
@@ -349,7 +452,10 @@ namespace VS_CUWSISMED
             tabControl.TabPages.Add(tabBook);
             tabControl.TabPages.Add(tabReserved);
 
-            pnlReceptionScreen.Controls.Add(tabControl);
+            pnlReceptionContent.Controls.Add(tabControl);
+            pnlReceptionContent.Controls.Add(pnlDashboardCards);
+            pnlReceptionContent.Controls.Add(pnlReceptionHero);
+            pnlReceptionScreen.Controls.Add(pnlReceptionContent);
             pnlReceptionScreen.Controls.Add(pnlReceptionSidebar);
         }
 
@@ -406,7 +512,7 @@ namespace VS_CUWSISMED
             var label = new Label
             {
                 Text = "Moduł dokumentów jest przygotowany w głównej nawigacji.",
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                Font = SismedTheme.Font(16f, FontStyle.Bold),
                 ForeColor = text,
                 Dock = DockStyle.Top,
                 Height = 52
@@ -440,9 +546,9 @@ namespace VS_CUWSISMED
             txtEmployeeSearch = CreateTextBox("Imię / nazwisko / PESEL / data urodzenia / login", 18, 20, 420);
             btnEmployeeSearch = CreateActionButton("Szukaj", 452, 20, 110, magenta);
             btnEmployeeSearch.Click += btnEmployeeSearch_Click;
-            btnAddEmployee = CreateActionButton("+ Dodaj pracownika", 580, 20, 180, Color.FromArgb(0, 130, 110));
+            btnAddEmployee = CreateActionButton("+ Dodaj pracownika", 580, 20, 180, SismedTheme.Success);
             btnAddEmployee.Click += btnAddEmployee_Click;
-            btnDeactivateEmployee = CreateActionButton("Dezaktywuj", 774, 20, 140, Color.FromArgb(190, 40, 40));
+            btnDeactivateEmployee = CreateActionButton("Dezaktywuj", 774, 20, 140, SismedTheme.Danger);
             btnDeactivateEmployee.Click += btnDeactivateEmployee_Click;
             pnlPersonnelTop.Controls.AddRange(new Control[]
             {
@@ -471,8 +577,8 @@ namespace VS_CUWSISMED
                 Text = "",
                 Dock = DockStyle.Top,
                 Height = 30,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(190, 40, 40)
+                Font = SismedTheme.Font(9f, FontStyle.Bold),
+                ForeColor = SismedTheme.Danger
             };
 
             lblEmployeeName = CreateDetailLabel("Imię i nazwisko: -", text, true);
@@ -501,37 +607,91 @@ namespace VS_CUWSISMED
             return new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White,
+                BackColor = SismedTheme.Surface,
                 Visible = false
             };
         }
 
+        private Panel CreateMetricCard(string title, Label valueLabel, Color accent)
+        {
+            var card = new Guna2Panel
+            {
+                Dock = DockStyle.Fill,
+                FillColor = SismedTheme.Card,
+                BorderColor = SismedTheme.Border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Margin = new Padding(0, 0, SismedTheme.Gap, 0),
+                Padding = new Padding(18)
+            };
+
+            var accentBar = new Panel
+            {
+                BackColor = accent,
+                Dock = DockStyle.Left,
+                Width = 5
+            };
+
+            var titleLabel = new Label
+            {
+                Text = title,
+                Font = SismedTheme.Font(9f, FontStyle.Bold),
+                ForeColor = SismedTheme.Muted,
+                Location = new Point(22, 18),
+                Size = new Size(240, 22)
+            };
+
+            valueLabel.Text = "0";
+            valueLabel.Font = SismedTheme.Font(22f, FontStyle.Bold);
+            valueLabel.ForeColor = SismedTheme.Navy;
+            valueLabel.Location = new Point(22, 44);
+            valueLabel.Size = new Size(240, 40);
+
+            card.Controls.Add(valueLabel);
+            card.Controls.Add(titleLabel);
+            card.Controls.Add(accentBar);
+            return card;
+        }
+
         private Guna2TextBox CreateTextBox(string placeholder, int left, int top, int width)
         {
-            return new Guna2TextBox
+            var textBox = new Guna2TextBox
             {
                 Location = new Point(left, top),
                 Size = new Size(width, 36),
-                PlaceholderText = placeholder,
-                Font = new Font("Segoe UI", 9f),
-                BorderColor = Color.FromArgb(218, 225, 238),
-                BorderThickness = 1,
-                FocusedState = { BorderColor = Color.FromArgb(218, 0, 148) }
+                PlaceholderText = placeholder
             };
+            SismedTheme.ApplyTextBox(textBox);
+            return textBox;
         }
 
         private Guna2Button CreateActionButton(string text, int left, int top, int width, Color fill)
         {
-            return new Guna2Button
+            var button = new Guna2Button
             {
                 Text = text,
                 Location = new Point(left, top),
-                Size = new Size(width, 36),
-                BorderRadius = 8,
-                FillColor = fill,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold)
+                Size = new Size(width, 36)
             };
+            if (fill == SismedTheme.Magenta)
+            {
+                SismedTheme.ApplyPrimaryButton(button);
+            }
+            else if (fill == SismedTheme.Success)
+            {
+                SismedTheme.ApplySuccessButton(button);
+            }
+            else if (fill == SismedTheme.Danger)
+            {
+                SismedTheme.ApplyDangerButton(button);
+            }
+            else
+            {
+                SismedTheme.ApplySecondaryButton(button);
+                button.FillColor = fill;
+            }
+
+            return button;
         }
 
         private ComboBox CreateComboBox(int left, int top, int width)
@@ -541,7 +701,7 @@ namespace VS_CUWSISMED
                 Location = new Point(left, top),
                 Size = new Size(width, 28),
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 9f)
+                Font = SismedTheme.Font(9f)
             };
         }
 
@@ -554,7 +714,7 @@ namespace VS_CUWSISMED
                 CustomFormat = "dd.MM.yyyy",
                 Format = DateTimePickerFormat.Custom,
                 Value = DateTime.Today,
-                BorderColor = Color.FromArgb(218, 225, 238),
+                BorderColor = SismedTheme.Border,
                 BorderThickness = 1
             };
         }
@@ -565,12 +725,11 @@ namespace VS_CUWSISMED
             {
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
-                BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.None,
                 ColumnHeadersHeight = 34,
                 ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9f),
+                Font = SismedTheme.Font(9f),
                 MultiSelect = false,
                 ReadOnly = true,
                 RowHeadersVisible = false,
@@ -578,11 +737,7 @@ namespace VS_CUWSISMED
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 EnableHeadersVisualStyles = false
             };
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(8, 21, 64);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(218, 0, 148);
-            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            SismedTheme.ApplyGrid(grid);
             return grid;
         }
 
@@ -605,7 +760,7 @@ namespace VS_CUWSISMED
                 Text = text,
                 Location = new Point(left, top),
                 Size = new Size(240, 38),
-                Font = new Font("Segoe UI", 9f, bold ? FontStyle.Bold : FontStyle.Regular),
+                Font = SismedTheme.Font(9f, bold ? FontStyle.Bold : FontStyle.Regular),
                 ForeColor = color
             };
         }
@@ -617,7 +772,7 @@ namespace VS_CUWSISMED
                 Text = text,
                 Dock = DockStyle.Top,
                 Height = bold ? 46 : 34,
-                Font = new Font("Segoe UI", bold ? 13f : 10f, bold ? FontStyle.Bold : FontStyle.Regular),
+                Font = SismedTheme.Font(bold ? 13f : 10f, bold ? FontStyle.Bold : FontStyle.Regular),
                 ForeColor = color
             };
         }
@@ -636,22 +791,25 @@ namespace VS_CUWSISMED
 
             if (status == "Wolny")
             {
-                row.DefaultCellStyle.ForeColor = Color.FromArgb(0, 130, 80);
+                row.DefaultCellStyle.ForeColor = SismedTheme.Success;
             }
             else if (status == "Zajęty")
             {
-                row.DefaultCellStyle.ForeColor = Color.FromArgb(190, 40, 40);
+                row.DefaultCellStyle.ForeColor = SismedTheme.Danger;
             }
         }
 
         private Panel pnlNavigation, pnlShell, pnlTopBar, pnlScreenHost;
+        private Panel pnlLogoWrap;
         private Panel pnlReceptionScreen, pnlCalendarScreen, pnlDocumentsScreen, pnlPersonnelScreen;
-        private Panel pnlReceptionSidebar, pnlPatientCard, pnlBookTop, pnlCalTop;
+        private Panel pnlReceptionSidebar, pnlReceptionContent, pnlPatientCard, pnlBookTop, pnlCalTop;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails;
+        private TableLayoutPanel pnlDashboardCards;
         private PictureBox picLogo;
-        private Label lblNavTitle, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;
+        private Label lblNavTitle, lblNavSection, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;
         private Label lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone;
         private Label lblPatientEmail, lblPatientWarnings, lblPatientNotes, lblPatientStatus;
+        private Label lblTodayVisitsValue, lblPlannedVisitsValue, lblPatientsValue;
         private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate;
         private Label lblSwapResult;
         private Label lblEmployeeName, lblEmployeePesel, lblEmployeeBirthDate, lblEmployeeLogin;

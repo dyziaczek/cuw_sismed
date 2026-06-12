@@ -17,6 +17,7 @@ namespace VS_CUWSISMED
         IReadOnlyList<AvailableSlot> GetAvailableSlots(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForDoctor(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId);
+        int GetPatientCount();
         IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria);
         Patient FindPatient(string query);
         Patient AddPatient(Patient patient);
@@ -391,6 +392,11 @@ namespace VS_CUWSISMED
                 .Where(a => a.PatientId == patientId && a.Status == AppointmentStatus.Reserved)
                 .OrderBy(a => a.StartAt)
                 .ToList();
+        }
+
+        public int GetPatientCount()
+        {
+            return patients.Count;
         }
 
         public IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria)
@@ -813,6 +819,11 @@ namespace VS_CUWSISMED
         public IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId)
         {
             return memory.GetAppointmentsForPatient(patientId);
+        }
+
+        public int GetPatientCount()
+        {
+            return memory.GetPatientCount();
         }
 
         public IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria)
@@ -1418,6 +1429,8 @@ namespace VS_CUWSISMED
         private const int SQLITE_OK = 0;
         private const int SQLITE_ROW = 100;
         private const int SQLITE_DONE = 101;
+        private const int SQLITE_OPEN_READWRITE = 0x00000002;
+        private const int SQLITE_OPEN_CREATE = 0x00000004;
         private const int SQLITE_INTEGER = 1;
         private const int SQLITE_TEXT = 3;
         private const int SQLITE_NULL = 5;
@@ -1503,17 +1516,32 @@ namespace VS_CUWSISMED
         private IntPtr Open()
         {
             IntPtr db;
-            int result = sqlite3_open16(databasePath, out db);
+            int result = sqlite3_open_v2(ToUtf8Bytes(databasePath), out db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, IntPtr.Zero);
             if (result != SQLITE_OK)
             {
-                ThrowSqlite(db, result);
+                string message = GetSqliteMessage(db, result);
+                Close(db);
+                throw new InvalidOperationException(message);
             }
 
-            IntPtr error;
-            result = sqlite3_exec(db, "PRAGMA foreign_keys = ON;", IntPtr.Zero, IntPtr.Zero, out error);
-            if (result != SQLITE_OK)
+            IntPtr statement = IntPtr.Zero;
+            try
             {
-                ThrowSqlite(db, result);
+                statement = Prepare(db, "PRAGMA foreign_keys = ON;");
+                result = sqlite3_step(statement);
+                if (result != SQLITE_DONE && result != SQLITE_ROW)
+                {
+                    ThrowSqlite(db, result);
+                }
+            }
+            catch
+            {
+                Close(db);
+                throw;
+            }
+            finally
+            {
+                FinalizeStatement(statement);
             }
 
             return db;
@@ -1522,7 +1550,7 @@ namespace VS_CUWSISMED
         private static IntPtr Prepare(IntPtr db, string sql)
         {
             IntPtr statement;
-            int result = sqlite3_prepare16_v2(db, sql, -1, out statement, IntPtr.Zero);
+            int result = sqlite3_prepare_v2(db, ToUtf8Bytes(sql), -1, out statement, IntPtr.Zero);
             if (result != SQLITE_OK)
             {
                 ThrowSqlite(db, result);
@@ -1549,7 +1577,8 @@ namespace VS_CUWSISMED
                 }
                 else
                 {
-                    result = sqlite3_bind_text16(statement, index, Convert.ToString(value, CultureInfo.InvariantCulture), -1, SQLITE_TRANSIENT);
+                    byte[] bytes = ToUtf8Bytes(Convert.ToString(value, CultureInfo.InvariantCulture));
+                    result = sqlite3_bind_text(statement, index, bytes, bytes.Length - 1, SQLITE_TRANSIENT);
                 }
 
                 if (result != SQLITE_OK)
@@ -1566,7 +1595,7 @@ namespace VS_CUWSISMED
 
             for (int i = 0; i < count; i++)
             {
-                string name = PtrToString(sqlite3_column_name16(statement, i));
+                string name = PtrToStringUtf8(sqlite3_column_name(statement, i));
                 int type = sqlite3_column_type(statement, i);
 
                 if (type == SQLITE_NULL)
@@ -1579,20 +1608,51 @@ namespace VS_CUWSISMED
                 }
                 else if (type == SQLITE_TEXT)
                 {
-                    row[name] = PtrToString(sqlite3_column_text16(statement, i));
+                    row[name] = PtrToStringUtf8(sqlite3_column_text(statement, i), sqlite3_column_bytes(statement, i));
                 }
                 else
                 {
-                    row[name] = PtrToString(sqlite3_column_text16(statement, i));
+                    row[name] = PtrToStringUtf8(sqlite3_column_text(statement, i), sqlite3_column_bytes(statement, i));
                 }
             }
 
             return row;
         }
 
-        private static string PtrToString(IntPtr pointer)
+        private static byte[] ToUtf8Bytes(string value)
         {
-            return pointer == IntPtr.Zero ? string.Empty : Marshal.PtrToStringUni(pointer);
+            byte[] source = Encoding.UTF8.GetBytes(value ?? string.Empty);
+            var target = new byte[source.Length + 1];
+            Buffer.BlockCopy(source, 0, target, 0, source.Length);
+            return target;
+        }
+
+        private static string PtrToStringUtf8(IntPtr pointer)
+        {
+            if (pointer == IntPtr.Zero)
+            {
+                return string.Empty;
+            }
+
+            int length = 0;
+            while (Marshal.ReadByte(pointer, length) != 0)
+            {
+                length++;
+            }
+
+            return PtrToStringUtf8(pointer, length);
+        }
+
+        private static string PtrToStringUtf8(IntPtr pointer, int byteCount)
+        {
+            if (pointer == IntPtr.Zero || byteCount <= 0)
+            {
+                return string.Empty;
+            }
+
+            var bytes = new byte[byteCount];
+            Marshal.Copy(pointer, bytes, 0, byteCount);
+            return Encoding.UTF8.GetString(bytes);
         }
 
         private static void FinalizeStatement(IntPtr statement)
@@ -1613,53 +1673,57 @@ namespace VS_CUWSISMED
 
         private static void ThrowSqlite(IntPtr db, int result)
         {
-            string message = db == IntPtr.Zero ? "SQLite error " + result : PtrToString(sqlite3_errmsg16(db));
-            throw new InvalidOperationException(message);
+            throw new InvalidOperationException(GetSqliteMessage(db, result));
         }
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern int sqlite3_open16(string filename, out IntPtr db);
+        private static string GetSqliteMessage(IntPtr db, int result)
+        {
+            return db == IntPtr.Zero ? "SQLite error " + result : PtrToStringUtf8(sqlite3_errmsg(db));
+        }
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern int sqlite3_prepare16_v2(IntPtr db, string sql, int nByte, out IntPtr statement, IntPtr tail);
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern int sqlite3_open_v2(byte[] filename, out IntPtr db, int flags, IntPtr vfs);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-        private static extern int sqlite3_exec(IntPtr db, string sql, IntPtr callback, IntPtr arg, out IntPtr errorMessage);
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern int sqlite3_prepare_v2(IntPtr db, byte[] sql, int nByte, out IntPtr statement, IntPtr tail);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_step(IntPtr statement);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_finalize(IntPtr statement);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_close(IntPtr db);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_bind_null(IntPtr statement, int index);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_bind_int(IntPtr statement, int index, int value);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private static extern int sqlite3_bind_text16(IntPtr statement, int index, string value, int bytes, IntPtr destructor);
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern int sqlite3_bind_text(IntPtr statement, int index, byte[] value, int bytes, IntPtr destructor);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_column_count(IntPtr statement);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_column_type(IntPtr statement, int column);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
         private static extern int sqlite3_column_int(IntPtr statement, int column);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr sqlite3_column_text16(IntPtr statement, int column);
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern IntPtr sqlite3_column_text(IntPtr statement, int column);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr sqlite3_column_name16(IntPtr statement, int column);
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern int sqlite3_column_bytes(IntPtr statement, int column);
 
-        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr sqlite3_errmsg16(IntPtr db);
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern IntPtr sqlite3_column_name(IntPtr statement, int column);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.StdCall)]
+        private static extern IntPtr sqlite3_errmsg(IntPtr db);
     }
 }

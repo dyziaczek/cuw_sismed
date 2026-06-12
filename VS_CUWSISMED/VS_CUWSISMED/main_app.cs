@@ -40,6 +40,7 @@ namespace VS_CUWSISMED
             LoadCalendar();
             RefreshReservedAppointments();
             LoadEmployeeList(string.Empty);
+            RefreshReceptionStats();
             ShowReceptionScreen();
             SetStatus("Gotowy");
         }
@@ -113,13 +114,10 @@ namespace VS_CUWSISMED
 
         private void SetActiveNav(string title)
         {
-            Color blue = Color.FromArgb(26, 72, 168);
-            Color magenta = Color.FromArgb(218, 0, 148);
-
-            btnNavCalendar.FillColor = title == "KALENDARZ WIZYT" ? magenta : blue;
-            btnNavReception.FillColor = title == "RECEPCJA" ? magenta : blue;
-            btnNavDocuments.FillColor = title == "DOKUMENTY" ? magenta : blue;
-            btnNavPersonnel.FillColor = title == "PERSONEL" ? magenta : blue;
+            btnNavCalendar.FillColor = title == "KALENDARZ WIZYT" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavReception.FillColor = title == "RECEPCJA" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavDocuments.FillColor = title == "DOKUMENTY" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavPersonnel.FillColor = title == "PERSONEL" ? SismedTheme.Magenta : SismedTheme.NavyDark;
         }
 
         private void btnSearch_Click(object sender, EventArgs e)
@@ -183,6 +181,7 @@ namespace VS_CUWSISMED
                     FillPatientSearchFields(selectedPatient);
                     RefreshPatientCard(selectedPatient);
                     RefreshReservedAppointments();
+                    RefreshReceptionStats();
                     SetStatus("Dodano pacjenta: " + selectedPatient.DisplayName);
                 }
                 catch (Exception ex)
@@ -271,16 +270,6 @@ namespace VS_CUWSISMED
 
         private void btnLogout_Click(object sender, EventArgs e)
         {
-            Form owner = Owner;
-            if (owner != null && !owner.IsDisposed)
-            {
-                owner.Show();
-            }
-            else
-            {
-                new login_page().Show();
-            }
-
             Close();
         }
 
@@ -311,6 +300,7 @@ namespace VS_CUWSISMED
                 LoadSlots();
                 LoadCalendar();
                 RefreshReservedAppointments();
+                RefreshReceptionStats();
             }
             catch (Exception ex)
             {
@@ -349,6 +339,7 @@ namespace VS_CUWSISMED
             LoadSlots();
             RefreshPatientCard(selectedPatient);
             RefreshReservedAppointments();
+            RefreshReceptionStats();
         }
 
         private void btnSwapFind_Click(object sender, EventArgs e)
@@ -356,13 +347,13 @@ namespace VS_CUWSISMED
             swapPatient = dataStore.FindPatient(txtSwapSearch.Text);
             if (swapPatient == null)
             {
-                lblSwapResult.ForeColor = Color.OrangeRed;
+                lblSwapResult.ForeColor = SismedTheme.Danger;
                 lblSwapResult.Text = "Nie znaleziono pacjenta";
                 btnSwap.Enabled = false;
                 return;
             }
 
-            lblSwapResult.ForeColor = Color.Green;
+            lblSwapResult.ForeColor = SismedTheme.Success;
             lblSwapResult.Text = swapPatient.DisplayName;
             btnSwap.Enabled = GetSelectedReservedAppointment() != null;
         }
@@ -390,6 +381,7 @@ namespace VS_CUWSISMED
                 RefreshPatientCard(selectedPatient);
                 RefreshReservedAppointments();
                 LoadCalendar();
+                RefreshReceptionStats();
                 SetStatus("Zamieniono pacjenta na wizycie.");
             }
             catch (Exception ex)
@@ -557,6 +549,39 @@ namespace VS_CUWSISMED
                     appointment.Notes ?? string.Empty);
                 dgvReserved.Rows[rowIndex].Tag = appointment;
             }
+        }
+
+        private void RefreshReceptionStats()
+        {
+            int todayVisits = 0;
+            int plannedVisits = 0;
+
+            foreach (Doctor doctor in dataStore.GetDoctors())
+            {
+                foreach (Appointment appointment in dataStore.GetAppointmentsForDoctor(doctor.Id, DateTime.Today))
+                {
+                    if (appointment.Status == AppointmentStatus.Reserved)
+                    {
+                        todayVisits++;
+                    }
+                }
+
+                for (int dayOffset = 0; dayOffset < 30; dayOffset++)
+                {
+                    DateTime day = DateTime.Today.AddDays(dayOffset);
+                    foreach (Appointment appointment in dataStore.GetAppointmentsForDoctor(doctor.Id, day))
+                    {
+                        if (appointment.Status == AppointmentStatus.Reserved && appointment.StartAt >= DateTime.Now)
+                        {
+                            plannedVisits++;
+                        }
+                    }
+                }
+            }
+
+            lblTodayVisitsValue.Text = todayVisits.ToString();
+            lblPlannedVisitsValue.Text = plannedVisits.ToString();
+            lblPatientsValue.Text = dataStore.GetPatientCount().ToString();
         }
 
         private void LoadEmployeeList(string query)

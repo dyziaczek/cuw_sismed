@@ -60,11 +60,11 @@ namespace VS_CUWSISMED
                 row.Tag = appointment;
                 if (appointment.Status == AppointmentStatus.Free)
                 {
-                    row.DefaultCellStyle.ForeColor = Color.FromArgb(80, 220, 120);
+                    row.DefaultCellStyle.ForeColor = SismedTheme.Success;
                 }
                 else
                 {
-                    row.DefaultCellStyle.ForeColor = Color.FromArgb(255, 120, 120);
+                    row.DefaultCellStyle.ForeColor = SismedTheme.Danger;
                 }
             }
         }

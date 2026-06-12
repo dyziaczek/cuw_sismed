@@ -84,6 +84,7 @@
     </Compile>
     <Compile Include="SampleData.cs" />
     <Compile Include="Services.cs" />
+    <Compile Include="SismedTheme.cs" />
     <EmbeddedResource Include="login_page.resx">
       <DependentUpon>login_page.cs</DependentUpon>
     </EmbeddedResource>
