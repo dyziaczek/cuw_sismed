@@ -128,6 +128,7 @@ namespace VS_CUWSISMED
         public int Id { get; set; }
         public int PatientId { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string CreatedByEmployee { get; set; }
         public string Text { get; set; }
     }
 

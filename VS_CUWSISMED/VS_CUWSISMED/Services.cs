@@ -17,12 +17,15 @@ namespace VS_CUWSISMED
         IReadOnlyList<AvailableSlot> GetAvailableSlots(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForDoctor(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId);
+        IReadOnlyList<Appointment> GetAllAppointmentsForPatient(int patientId);
         int GetPatientCount();
         IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria);
         Patient FindPatient(string query);
         Patient AddPatient(Patient patient);
         Patient GetPatient(int patientId);
         IReadOnlyList<PatientNote> GetPatientNotes(int patientId);
+        PatientNote AddPatientNote(int patientId, string text, string createdByEmployee);
+        void DeletePatientNote(int noteId);
         IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId);
         Doctor GetDoctor(int doctorId);
         Appointment ReserveAppointment(int doctorId, int patientId, DateTime startAt);
@@ -394,6 +397,14 @@ namespace VS_CUWSISMED
                 .ToList();
         }
 
+        public IReadOnlyList<Appointment> GetAllAppointmentsForPatient(int patientId)
+        {
+            return appointments
+                .Where(a => a.PatientId == patientId)
+                .OrderBy(a => a.StartAt)
+                .ToList();
+        }
+
         public int GetPatientCount()
         {
             return patients.Count;
@@ -484,6 +495,7 @@ namespace VS_CUWSISMED
                     Id = nextNoteId++,
                     PatientId = patient.Id,
                     CreatedAt = DateTime.Now,
+                    CreatedByEmployee = "System",
                     Text = patient.Notes
                 });
             }
@@ -502,6 +514,41 @@ namespace VS_CUWSISMED
                 .Where(n => n.PatientId == patientId)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToList();
+        }
+
+        public PatientNote AddPatientNote(int patientId, string text, string createdByEmployee)
+        {
+            if (GetPatient(patientId) == null)
+            {
+                throw new InvalidOperationException("Nie znaleziono pacjenta.");
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                throw new InvalidOperationException("Treść notatki nie może być pusta.");
+            }
+
+            var note = new PatientNote
+            {
+                Id = nextNoteId++,
+                PatientId = patientId,
+                CreatedAt = DateTime.Now,
+                CreatedByEmployee = string.IsNullOrWhiteSpace(createdByEmployee)
+                    ? "Pracownik"
+                    : createdByEmployee.Trim(),
+                Text = text.Trim()
+            };
+            patientNotes.Add(note);
+            return note;
+        }
+
+        public void DeletePatientNote(int noteId)
+        {
+            PatientNote note = patientNotes.FirstOrDefault(n => n.Id == noteId);
+            if (note != null)
+            {
+                patientNotes.Remove(note);
+            }
         }
 
         public IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId)
@@ -821,6 +868,11 @@ namespace VS_CUWSISMED
             return memory.GetAppointmentsForPatient(patientId);
         }
 
+        public IReadOnlyList<Appointment> GetAllAppointmentsForPatient(int patientId)
+        {
+            return memory.GetAllAppointmentsForPatient(patientId);
+        }
+
         public int GetPatientCount()
         {
             return memory.GetPatientCount();
@@ -861,6 +913,21 @@ namespace VS_CUWSISMED
         public IReadOnlyList<PatientNote> GetPatientNotes(int patientId)
         {
             return memory.GetPatientNotes(patientId);
+        }
+
+        public PatientNote AddPatientNote(int patientId, string text, string createdByEmployee)
+        {
+            PatientNote note = memory.AddPatientNote(patientId, text, createdByEmployee);
+            InsertPatientNote(note);
+            return note;
+        }
+
+        public void DeletePatientNote(int noteId)
+        {
+            memory.DeletePatientNote(noteId);
+            database.ExecuteNonQuery(
+                "DELETE FROM patient_notes WHERE id = ?",
+                SqlValue.Int(noteId));
         }
 
         public IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId)
@@ -985,7 +1052,8 @@ namespace VS_CUWSISMED
                 "is_doctor INTEGER NOT NULL DEFAULT 0, specialization TEXT)");
             database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS patient_notes (" +
-                "id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, created_at TEXT NOT NULL, note_text TEXT NOT NULL)");
+                "id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, created_at TEXT NOT NULL, " +
+                "created_by_employee TEXT, note_text TEXT NOT NULL)");
             database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS patient_warnings (" +
                 "id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, created_at TEXT NOT NULL, reason TEXT NOT NULL)");
@@ -998,6 +1066,7 @@ namespace VS_CUWSISMED
             EnsureColumn("employees", "birth_date", "TEXT");
             EnsureColumn("employees", "is_doctor", "INTEGER NOT NULL DEFAULT 0");
             EnsureColumn("employees", "specialization", "TEXT");
+            EnsureColumn("patient_notes", "created_by_employee", "TEXT");
 
             database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_patients_search ON patients(pesel, first_name, last_name, birth_date, phone, email)");
             database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date ON appointments(doctor_id, start_at, status)");
@@ -1096,7 +1165,7 @@ namespace VS_CUWSISMED
             data.Patients.AddRange(database.Query("SELECT id, first_name, last_name, pesel, birth_date, phone, email, address, notes, warning_count, blocked_until FROM patients").Select(ReadPatient));
             data.Appointments.AddRange(database.Query("SELECT id, doctor_id, patient_id, start_at, status, cancel_reason, notes FROM appointments").Select(ReadAppointment));
             data.Employees.AddRange(database.Query("SELECT id, login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization FROM employees").Select(ReadEmployee));
-            data.PatientNotes.AddRange(database.Query("SELECT id, patient_id, created_at, note_text FROM patient_notes").Select(ReadPatientNote));
+            data.PatientNotes.AddRange(database.Query("SELECT id, patient_id, created_at, created_by_employee, note_text FROM patient_notes").Select(ReadPatientNote));
             data.PatientWarnings.AddRange(database.Query("SELECT id, patient_id, created_at, reason FROM patient_warnings").Select(ReadPatientWarning));
             return data;
         }
@@ -1208,10 +1277,11 @@ namespace VS_CUWSISMED
         private void InsertPatientNote(PatientNote note)
         {
             database.ExecuteNonQuery(
-                "INSERT OR REPLACE INTO patient_notes(id, patient_id, created_at, note_text) VALUES(?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO patient_notes(id, patient_id, created_at, created_by_employee, note_text) VALUES(?, ?, ?, ?, ?)",
                 SqlValue.Int(note.Id),
                 SqlValue.Int(note.PatientId),
                 SqlValue.Text(ToDbDateTime(note.CreatedAt)),
+                SqlValue.Text(note.CreatedByEmployee),
                 SqlValue.Text(note.Text));
         }
 
@@ -1326,6 +1396,7 @@ namespace VS_CUWSISMED
                 Id = RowInt(row, "id"),
                 PatientId = RowInt(row, "patient_id"),
                 CreatedAt = RowDateTime(row, "created_at") ?? DateTime.Now,
+                CreatedByEmployee = RowText(row, "created_by_employee"),
                 Text = RowText(row, "note_text")
             };
         }

@@ -55,29 +55,21 @@ namespace VS_CUWSISMED
                 BackColor = navy
             };
 
-            pnlLogoWrap = new Panel
-            {
-                Location = new Point(18, 20),
-                Size = new Size(240, 88),
-                BackColor = SismedTheme.Card,
-                Padding = new Padding(8)
-            };
-
             picLogo = new PictureBox
             {
                 Image = Properties.Resources.LOGO,
                 SizeMode = PictureBoxSizeMode.Zoom,
-                Dock = DockStyle.Fill,
+                Location = new Point(12, 8),
+                Size = new Size(252, 168),
                 BackColor = Color.Transparent
             };
-            pnlLogoWrap.Controls.Add(picLogo);
 
             lblNavTitle = new Label
             {
                 Text = "Centrum Umawiania Wizyt",
                 Font = SismedTheme.Font(8.5f, FontStyle.Bold),
                 ForeColor = SismedTheme.SidebarMuted,
-                Location = new Point(22, 118),
+                Location = new Point(22, 178),
                 Size = new Size(232, 20),
                 TextAlign = ContentAlignment.MiddleCenter
             };
@@ -87,14 +79,14 @@ namespace VS_CUWSISMED
                 Text = "MENU",
                 Font = SismedTheme.Font(8.5f, FontStyle.Bold),
                 ForeColor = SismedTheme.SidebarMuted,
-                Location = new Point(28, 160),
+                Location = new Point(28, 220),
                 Size = new Size(210, 18)
             };
 
-            btnNavCalendar = CreateNavButton("KALENDARZ WIZYT", 190, navFont, navInactive);
-            btnNavReception = CreateNavButton("RECEPCJA", 242, navFont, magenta);
-            btnNavDocuments = CreateNavButton("DOKUMENTY", 294, navFont, navInactive);
-            btnNavPersonnel = CreateNavButton("PERSONEL", 346, navFont, navInactive);
+            btnNavCalendar = CreateNavButton("KALENDARZ WIZYT", 250, navFont, navInactive);
+            btnNavReception = CreateNavButton("RECEPCJA", 304, navFont, magenta);
+            btnNavDocuments = CreateNavButton("DOKUMENTY", 358, navFont, navInactive);
+            btnNavPersonnel = CreateNavButton("PERSONEL", 412, navFont, navInactive);
             btnNavCalendar.Click += btnNavCalendar_Click;
             btnNavReception.Click += btnNavReception_Click;
             btnNavDocuments.Click += btnNavDocuments_Click;
@@ -117,7 +109,7 @@ namespace VS_CUWSISMED
 
             pnlNavigation.Controls.AddRange(new Control[]
             {
-                pnlLogoWrap, lblNavTitle, lblNavSection,
+                picLogo, lblNavTitle, lblNavSection,
                 btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel,
                 btnLogout
             });
@@ -383,6 +375,8 @@ namespace VS_CUWSISMED
                 Padding = new Point(16, 6)
             };
 
+            BuildPatientWorkspaceTab(text, muted, magenta, blue, labelFont, normalFont);
+
             tabBook = new TabPage { Text = "Umowienie wizyty", BackColor = Color.White, Padding = new Padding(16) };
             tabReserved = new TabPage { Text = "Zarezerwowane wizyty", BackColor = Color.White, Padding = new Padding(16) };
 
@@ -449,6 +443,7 @@ namespace VS_CUWSISMED
             tabReserved.Controls.Add(dgvReserved);
             tabReserved.Controls.Add(pnlReservedActions);
 
+            tabControl.TabPages.Add(tabPatient);
             tabControl.TabPages.Add(tabBook);
             tabControl.TabPages.Add(tabReserved);
 
@@ -457,6 +452,193 @@ namespace VS_CUWSISMED
             pnlReceptionContent.Controls.Add(pnlReceptionHero);
             pnlReceptionScreen.Controls.Add(pnlReceptionContent);
             pnlReceptionScreen.Controls.Add(pnlReceptionSidebar);
+        }
+
+        private void BuildPatientWorkspaceTab(
+            Color text,
+            Color muted,
+            Color magenta,
+            Color blue,
+            Font labelFont,
+            Font normalFont)
+        {
+            tabPatient = new TabPage { Text = "Panel pacjenta", BackColor = Color.White, Padding = new Padding(16) };
+
+            var patientLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            patientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350F));
+            patientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+            pnlPatientDetailsPanel = new Guna2Panel
+            {
+                Dock = DockStyle.Fill,
+                FillColor = SismedTheme.CardSoft,
+                BorderColor = SismedTheme.Border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Margin = new Padding(0, 0, 16, 0)
+            };
+
+            lblPatientPanelTitle = new Label
+            {
+                Text = "Karta pacjenta",
+                Font = SismedTheme.Font(10f, FontStyle.Bold),
+                ForeColor = muted,
+                Location = new Point(18, 14),
+                Size = new Size(294, 22)
+            };
+            lblPatientPanelName = CreatePatientDetailLabel("- Brak wybranego pacjenta -", 18, 42, text, true, 36);
+            lblPatientPanelPesel = CreatePatientDetailLabel("PESEL: -", 18, 84, muted, false, 22);
+            lblPatientPanelBirthDate = CreatePatientDetailLabel("Data ur.: -", 18, 108, muted, false, 22);
+            lblPatientPanelPhone = CreatePatientDetailLabel("Tel: -", 18, 132, muted, false, 22);
+            lblPatientPanelEmail = CreatePatientDetailLabel("E-mail: -", 18, 156, muted, false, 22);
+            lblPatientPanelAddress = CreatePatientDetailLabel("Adres: -", 18, 180, muted, false, 44);
+            lblPatientPanelWarnings = CreatePatientDetailLabel("Ostrzezenia: 0", 18, 228, muted, false, 22);
+            lblPatientPanelBlock = CreatePatientDetailLabel("Blokada rezerwacji: nie", 18, 252, SismedTheme.Success, true, 26);
+
+            btnPatientMessages = CreateActionButton("Wiadomości", 18, 292, 140, magenta);
+            btnPatientMessages.Click += btnPatientMessages_Click;
+            btnPatientBook = CreateActionButton("Umów wizytę", 174, 292, 140, blue);
+            btnPatientBook.Click += btnPatientBook_Click;
+            btnPatientPlanned = CreateActionButton("Zaplanowane", 18, 336, 140, blue);
+            btnPatientPlanned.Click += btnPatientPlanned_Click;
+            btnPatientHistory = CreateActionButton("Historia", 174, 336, 140, blue);
+            btnPatientHistory.Click += btnPatientHistory_Click;
+
+            pnlPatientDetailsPanel.Controls.AddRange(new Control[]
+            {
+                lblPatientPanelTitle, lblPatientPanelName, lblPatientPanelPesel, lblPatientPanelBirthDate,
+                lblPatientPanelPhone, lblPatientPanelEmail, lblPatientPanelAddress, lblPatientPanelWarnings,
+                lblPatientPanelBlock, btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory
+            });
+
+            pnlPatientActionHost = new Guna2Panel
+            {
+                Dock = DockStyle.Fill,
+                FillColor = SismedTheme.Card,
+                BorderColor = SismedTheme.Border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Padding = new Padding(18)
+            };
+
+            lblPatientActionTitle = new Label
+            {
+                Text = "Panel pacjenta",
+                Dock = DockStyle.Top,
+                Height = 36,
+                Font = SismedTheme.Font(14f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy
+            };
+
+            pnlPatientActionBody = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = SismedTheme.Card
+            };
+
+            pnlPatientEmptyPanel = CreatePatientActionPanel();
+            lblPatientEmptyInfo = new Label
+            {
+                Text = "Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.",
+                Dock = DockStyle.Fill,
+                Font = SismedTheme.Font(11f, FontStyle.Bold),
+                ForeColor = muted,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            pnlPatientEmptyPanel.Controls.Add(lblPatientEmptyInfo);
+
+            pnlPatientResultsPanel = CreatePatientActionPanel();
+            dgvPatientResults = CreateGrid();
+            dgvPatientResults.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvPatientResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "resFirst", HeaderText = "Imię", Width = 120 });
+            dgvPatientResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "resLast", HeaderText = "Nazwisko", Width = 140 });
+            dgvPatientResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "resPesel", HeaderText = "PESEL", Width = 120 });
+            dgvPatientResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "resBirth", HeaderText = "Data ur.", Width = 110 });
+            dgvPatientResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "resPhone", HeaderText = "Telefon", Width = 110 });
+            dgvPatientResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "resEmail", HeaderText = "E-mail", Width = 180 });
+            dgvPatientResults.CellClick += dgvPatientResults_CellClick;
+            pnlPatientResultsPanel.Controls.Add(dgvPatientResults);
+
+            pnlPatientNotesPanel = CreatePatientActionPanel();
+            dgvPatientNotes = CreateGrid();
+            dgvPatientNotes.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvPatientNotes.Columns.Add(new DataGridViewTextBoxColumn { Name = "noteCreated", HeaderText = "Utworzono", Width = 145 });
+            dgvPatientNotes.Columns.Add(new DataGridViewTextBoxColumn { Name = "noteEmployee", HeaderText = "Pracownik", Width = 170 });
+            dgvPatientNotes.Columns.Add(new DataGridViewTextBoxColumn { Name = "noteText", HeaderText = "Treść", Width = 360 });
+
+            var pnlPatientNoteEditor = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 112,
+                BackColor = SismedTheme.CardSoft,
+                Padding = new Padding(12)
+            };
+            txtPatientNote = new TextBox
+            {
+                Multiline = true,
+                Location = new Point(12, 12),
+                Size = new Size(360, 82),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
+                Font = normalFont,
+                ForeColor = text,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            btnAddPatientNote = CreateActionButton("Dodaj notatkę", 392, 14, 150, magenta);
+            btnAddPatientNote.Click += btnAddPatientNote_Click;
+            btnDeletePatientNote = CreateActionButton("Usuń notatkę", 392, 58, 150, SismedTheme.Danger);
+            btnDeletePatientNote.Click += btnDeletePatientNote_Click;
+            pnlPatientNoteEditor.Resize += (sender, args) =>
+            {
+                int buttonsLeft = Math.Max(392, pnlPatientNoteEditor.Width - 174);
+                btnAddPatientNote.Left = buttonsLeft;
+                btnDeletePatientNote.Left = buttonsLeft;
+                txtPatientNote.Width = Math.Max(240, buttonsLeft - 28);
+            };
+            pnlPatientNoteEditor.Controls.AddRange(new Control[] { txtPatientNote, btnAddPatientNote, btnDeletePatientNote });
+            pnlPatientNotesPanel.Controls.Add(dgvPatientNotes);
+            pnlPatientNotesPanel.Controls.Add(pnlPatientNoteEditor);
+
+            pnlPatientPlannedPanel = CreatePatientActionPanel();
+            dgvPatientPlanned = CreateAppointmentSummaryGrid();
+            pnlPatientPlannedPanel.Controls.Add(dgvPatientPlanned);
+
+            pnlPatientHistoryPanel = CreatePatientActionPanel();
+            dgvPatientHistory = CreateAppointmentSummaryGrid();
+            pnlPatientHistoryPanel.Controls.Add(dgvPatientHistory);
+
+            pnlPatientBookingPanel = CreatePatientActionPanel();
+            lblPatientBookingInfo = new Label
+            {
+                Text = "Umawianie wizyty dla wybranego pacjenta będzie przygotowane w następnym etapie.",
+                Dock = DockStyle.Fill,
+                Font = SismedTheme.Font(12f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            pnlPatientBookingPanel.Controls.Add(lblPatientBookingInfo);
+
+            pnlPatientActionBody.Controls.AddRange(new Control[]
+            {
+                pnlPatientBookingPanel,
+                pnlPatientHistoryPanel,
+                pnlPatientPlannedPanel,
+                pnlPatientNotesPanel,
+                pnlPatientResultsPanel,
+                pnlPatientEmptyPanel
+            });
+
+            pnlPatientActionHost.Controls.Add(pnlPatientActionBody);
+            pnlPatientActionHost.Controls.Add(lblPatientActionTitle);
+
+            patientLayout.Controls.Add(pnlPatientDetailsPanel, 0, 0);
+            patientLayout.Controls.Add(pnlPatientActionHost, 1, 0);
+            tabPatient.Controls.Add(patientLayout);
         }
 
         private void BuildCalendarScreen(
@@ -741,6 +923,27 @@ namespace VS_CUWSISMED
             return grid;
         }
 
+        private Panel CreatePatientActionPanel()
+        {
+            return new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = SismedTheme.Card,
+                Visible = false
+            };
+        }
+
+        private DataGridView CreateAppointmentSummaryGrid()
+        {
+            DataGridView grid = CreateGrid();
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "apTerm", HeaderText = "Termin wykonania", Width = 170 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "apService", HeaderText = "Usługa", Width = 220 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "apDoctor", HeaderText = "Lekarz", Width = 200 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "apStatus", HeaderText = "Status wizyty", Width = 140 });
+            return grid;
+        }
+
         private Label CreateInlineLabel(string text, int left, int top, Color color, Font font)
         {
             return new Label
@@ -762,6 +965,19 @@ namespace VS_CUWSISMED
                 Size = new Size(240, 38),
                 Font = SismedTheme.Font(9f, bold ? FontStyle.Bold : FontStyle.Regular),
                 ForeColor = color
+            };
+        }
+
+        private Label CreatePatientDetailLabel(string text, int left, int top, Color color, bool bold, int height)
+        {
+            return new Label
+            {
+                Text = text,
+                Location = new Point(left, top),
+                Size = new Size(296, height),
+                Font = SismedTheme.Font(bold ? 9.5f : 9f, bold ? FontStyle.Bold : FontStyle.Regular),
+                ForeColor = color,
+                AutoEllipsis = true
             };
         }
 
@@ -800,15 +1016,20 @@ namespace VS_CUWSISMED
         }
 
         private Panel pnlNavigation, pnlShell, pnlTopBar, pnlScreenHost;
-        private Panel pnlLogoWrap;
         private Panel pnlReceptionScreen, pnlCalendarScreen, pnlDocumentsScreen, pnlPersonnelScreen;
         private Panel pnlReceptionSidebar, pnlReceptionContent, pnlPatientCard, pnlBookTop, pnlCalTop;
+        private Panel pnlPatientActionBody, pnlPatientEmptyPanel, pnlPatientResultsPanel, pnlPatientNotesPanel;
+        private Panel pnlPatientPlannedPanel, pnlPatientHistoryPanel, pnlPatientBookingPanel;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails;
         private TableLayoutPanel pnlDashboardCards;
+        private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost;
         private PictureBox picLogo;
         private Label lblNavTitle, lblNavSection, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;
         private Label lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone;
         private Label lblPatientEmail, lblPatientWarnings, lblPatientNotes, lblPatientStatus;
+        private Label lblPatientPanelTitle, lblPatientPanelName, lblPatientPanelPesel, lblPatientPanelBirthDate;
+        private Label lblPatientPanelPhone, lblPatientPanelEmail, lblPatientPanelAddress, lblPatientPanelWarnings;
+        private Label lblPatientPanelBlock, lblPatientActionTitle, lblPatientEmptyInfo, lblPatientBookingInfo;
         private Label lblTodayVisitsValue, lblPlannedVisitsValue, lblPatientsValue;
         private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate;
         private Label lblSwapResult;
@@ -816,14 +1037,18 @@ namespace VS_CUWSISMED
         private Label lblEmployeeRole, lblEmployeeStatus, lblEmployeeDoctor, lblEmployeeSpecialization;
         private Guna2TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
         private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch;
+        private TextBox txtPatientNote;
         private Guna2Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
         private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
         private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
+        private Guna2Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
+        private Guna2Button btnAddPatientNote, btnDeletePatientNote;
         private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
         private ComboBox cmbDoctor, cmbCalDoctor;
         private Guna2DateTimePicker dtpBook, dtpCal;
         private DataGridView dgvSlots, dgvCal, dgvReserved, dgvEmployees;
+        private DataGridView dgvPatientResults, dgvPatientNotes, dgvPatientPlanned, dgvPatientHistory;
         private TabControl tabControl;
-        private TabPage tabBook, tabReserved;
+        private TabPage tabPatient, tabBook, tabReserved;
     }
 }

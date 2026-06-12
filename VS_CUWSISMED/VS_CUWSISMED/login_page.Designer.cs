@@ -78,6 +78,7 @@ namespace VS_CUWSISMED
             pictureBox1.Location = new Point(54, 34);
             pictureBox1.Size = new Size(338, 106);
             pictureBox1.SizeMode = PictureBoxSizeMode.Zoom;
+            pictureBox1.BackColor = Color.Transparent;
             pictureBox1.TabStop = false;
 
             lblWelcome.Text = "Witaj w CUW SISMED";

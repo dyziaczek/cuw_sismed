@@ -198,6 +198,7 @@ namespace VS_CUWSISMED
                 Id = 1,
                 PatientId = 1,
                 CreatedAt = DateTime.Now,
+                CreatedByEmployee = "Rejestrator SISMED",
                 Text = "Pacjentka preferuje kontakt telefoniczny."
             });
 

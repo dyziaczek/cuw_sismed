@@ -15,6 +15,12 @@ namespace VS_CUWSISMED
         private Patient swapPatient;
         private Employee selectedEmployee;
         private string lastStatus;
+        private string activePatientSection;
+
+        private const string PatientSectionMessages = "messages";
+        private const string PatientSectionPlanned = "planned";
+        private const string PatientSectionHistory = "history";
+        private const string PatientSectionBooking = "booking";
 
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
@@ -37,6 +43,7 @@ namespace VS_CUWSISMED
             ConfigureCurrentUser();
             LoadDoctorLists();
             RefreshPatientCard(null);
+            ShowPatientEmptyPanel("Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.");
             LoadCalendar();
             RefreshReservedAppointments();
             LoadEmployeeList(string.Empty);
@@ -129,24 +136,32 @@ namespace VS_CUWSISMED
             }
 
             IReadOnlyList<Patient> patients = dataStore.SearchPatients(criteria);
-            selectedPatient = patients.FirstOrDefault();
             swapPatient = null;
             lblSwapResult.Text = string.Empty;
             btnSwap.Enabled = false;
 
-            if (selectedPatient == null)
+            if (patients.Count == 0)
             {
+                selectedPatient = null;
                 RefreshPatientCard(null);
                 RefreshReservedAppointments();
+                ShowPatientEmptyPanel("Nie znaleziono pacjenta dla podanych kryteriów.");
                 SetStatus("Nie znaleziono pacjenta.");
                 return;
             }
 
-            RefreshPatientCard(selectedPatient);
+            if (patients.Count == 1)
+            {
+                SelectPatient(patients[0], true);
+                SetStatus("Wybrano pacjenta: " + selectedPatient.DisplayName);
+                return;
+            }
+
+            selectedPatient = null;
+            RefreshPatientCard(null);
             RefreshReservedAppointments();
-            SetStatus(patients.Count > 1
-                ? "Znaleziono kilku pacjentow, pokazano pierwszy wynik: " + selectedPatient.DisplayName
-                : "Wybrano pacjenta: " + selectedPatient.DisplayName);
+            ShowPatientSearchResults(patients);
+            SetStatus("Znaleziono " + patients.Count + " pacjentow. Wybierz pacjenta z listy wynikow.");
         }
 
         private void btnClearPatientSearch_Click(object sender, EventArgs e)
@@ -163,6 +178,7 @@ namespace VS_CUWSISMED
             btnSwap.Enabled = false;
             RefreshPatientCard(null);
             RefreshReservedAppointments();
+            ShowPatientEmptyPanel("Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.");
             SetStatus("Wyczyszczono wyszukiwanie pacjenta.");
         }
 
@@ -177,10 +193,8 @@ namespace VS_CUWSISMED
 
                 try
                 {
-                    selectedPatient = dataStore.AddPatient(dialog.Patient);
-                    FillPatientSearchFields(selectedPatient);
-                    RefreshPatientCard(selectedPatient);
-                    RefreshReservedAppointments();
+                    Patient savedPatient = dataStore.AddPatient(dialog.Patient);
+                    SelectPatient(savedPatient, true);
                     RefreshReceptionStats();
                     SetStatus("Dodano pacjenta: " + selectedPatient.DisplayName);
                 }
@@ -300,6 +314,7 @@ namespace VS_CUWSISMED
                 LoadSlots();
                 LoadCalendar();
                 RefreshReservedAppointments();
+                RefreshActivePatientSection();
                 RefreshReceptionStats();
             }
             catch (Exception ex)
@@ -339,6 +354,7 @@ namespace VS_CUWSISMED
             LoadSlots();
             RefreshPatientCard(selectedPatient);
             RefreshReservedAppointments();
+            RefreshActivePatientSection();
             RefreshReceptionStats();
         }
 
@@ -376,10 +392,7 @@ namespace VS_CUWSISMED
             try
             {
                 dataStore.SwapAppointmentPatient(appointment.Id, swapPatient.Id);
-                selectedPatient = swapPatient;
-                FillPatientSearchFields(selectedPatient);
-                RefreshPatientCard(selectedPatient);
-                RefreshReservedAppointments();
+                SelectPatient(swapPatient, true);
                 LoadCalendar();
                 RefreshReceptionStats();
                 SetStatus("Zamieniono pacjenta na wizycie.");
@@ -633,6 +646,358 @@ namespace VS_CUWSISMED
             }
         }
 
+        private void SelectPatient(Patient patient, bool fillSearchFields)
+        {
+            if (patient == null)
+            {
+                return;
+            }
+
+            selectedPatient = dataStore.GetPatient(patient.Id) ?? patient;
+            if (fillSearchFields)
+            {
+                FillPatientSearchFields(selectedPatient);
+            }
+
+            RefreshPatientCard(selectedPatient);
+            RefreshReservedAppointments();
+            ShowPatientMessagesPanel();
+            tabControl.SelectedTab = tabPatient;
+        }
+
+        private void ShowPatientSearchResults(IReadOnlyList<Patient> patients)
+        {
+            dgvPatientResults.Rows.Clear();
+
+            foreach (Patient patient in patients)
+            {
+                int rowIndex = dgvPatientResults.Rows.Add(
+                    Safe(patient.FirstName),
+                    Safe(patient.LastName),
+                    Safe(patient.Pesel),
+                    patient.BirthDate.HasValue ? patient.BirthDate.Value.ToString("dd.MM.yyyy") : "-",
+                    Safe(patient.Phone),
+                    Safe(patient.Email));
+                dgvPatientResults.Rows[rowIndex].Tag = patient;
+            }
+
+            dgvPatientResults.ClearSelection();
+            SetPatientActionButtonsEnabled(false);
+            ShowPatientActionPanel(pnlPatientResultsPanel, "Wyniki wyszukiwania pacjentów");
+            tabControl.SelectedTab = tabPatient;
+        }
+
+        private void dgvPatientResults_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+            {
+                return;
+            }
+
+            Patient patient = dgvPatientResults.Rows[e.RowIndex].Tag as Patient;
+            if (patient == null)
+            {
+                return;
+            }
+
+            SelectPatient(patient, true);
+            SetStatus("Wybrano pacjenta: " + selectedPatient.DisplayName);
+        }
+
+        private void ShowPatientEmptyPanel(string message)
+        {
+            activePatientSection = string.Empty;
+            lblPatientEmptyInfo.Text = message;
+            SetPatientActionButtonsEnabled(false);
+            ShowPatientActionPanel(pnlPatientEmptyPanel, "Panel pacjenta");
+            tabControl.SelectedTab = tabPatient;
+        }
+
+        private void ShowPatientMessagesPanel()
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            activePatientSection = PatientSectionMessages;
+            ShowPatientActionPanel(pnlPatientNotesPanel, "Wiadomości i notatki pacjenta");
+            LoadPatientNotes();
+        }
+
+        private void ShowPatientPlannedPanel()
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            activePatientSection = PatientSectionPlanned;
+            ShowPatientActionPanel(pnlPatientPlannedPanel, "Zaplanowane wizyty");
+            IEnumerable<Appointment> appointments = dataStore.GetAllAppointmentsForPatient(selectedPatient.Id)
+                .Where(a => a.Status == AppointmentStatus.Reserved && a.StartAt >= DateTime.Now)
+                .OrderBy(a => a.StartAt);
+            LoadAppointmentSummaryGrid(dgvPatientPlanned, appointments);
+        }
+
+        private void ShowPatientHistoryPanel()
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            activePatientSection = PatientSectionHistory;
+            ShowPatientActionPanel(pnlPatientHistoryPanel, "Historia wizyt");
+            IEnumerable<Appointment> appointments = dataStore.GetAllAppointmentsForPatient(selectedPatient.Id)
+                .Where(a => a.Status == AppointmentStatus.Cancelled || a.StartAt < DateTime.Now)
+                .OrderByDescending(a => a.StartAt);
+            LoadAppointmentSummaryGrid(dgvPatientHistory, appointments);
+        }
+
+        private void ShowPatientBookingPanel()
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            activePatientSection = PatientSectionBooking;
+            lblPatientBookingInfo.Text = "Umawianie wizyty dla pacjenta "
+                + selectedPatient.DisplayName
+                + " będzie przygotowane w następnym etapie.";
+            ShowPatientActionPanel(pnlPatientBookingPanel, "Umów wizytę");
+        }
+
+        private void ShowPatientActionPanel(Panel panel, string title)
+        {
+            pnlPatientEmptyPanel.Visible = false;
+            pnlPatientResultsPanel.Visible = false;
+            pnlPatientNotesPanel.Visible = false;
+            pnlPatientPlannedPanel.Visible = false;
+            pnlPatientHistoryPanel.Visible = false;
+            pnlPatientBookingPanel.Visible = false;
+
+            lblPatientActionTitle.Text = title;
+            panel.Visible = true;
+            panel.BringToFront();
+        }
+
+        private void RefreshActivePatientSection()
+        {
+            if (selectedPatient == null)
+            {
+                return;
+            }
+
+            if (activePatientSection == PatientSectionPlanned)
+            {
+                ShowPatientPlannedPanel();
+            }
+            else if (activePatientSection == PatientSectionHistory)
+            {
+                ShowPatientHistoryPanel();
+            }
+            else if (activePatientSection == PatientSectionBooking)
+            {
+                ShowPatientBookingPanel();
+            }
+            else if (activePatientSection == PatientSectionMessages)
+            {
+                ShowPatientMessagesPanel();
+            }
+        }
+
+        private void btnPatientMessages_Click(object sender, EventArgs e)
+        {
+            ShowPatientMessagesPanel();
+        }
+
+        private void btnPatientBook_Click(object sender, EventArgs e)
+        {
+            ShowPatientBookingPanel();
+        }
+
+        private void btnPatientPlanned_Click(object sender, EventArgs e)
+        {
+            ShowPatientPlannedPanel();
+        }
+
+        private void btnPatientHistory_Click(object sender, EventArgs e)
+        {
+            ShowPatientHistoryPanel();
+        }
+
+        private void btnAddPatientNote_Click(object sender, EventArgs e)
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            string noteText = txtPatientNote.Text.Trim();
+            if (string.IsNullOrWhiteSpace(noteText))
+            {
+                ShowError("Treść notatki nie może być pusta.");
+                return;
+            }
+
+            try
+            {
+                dataStore.AddPatientNote(selectedPatient.Id, noteText, GetCurrentEmployeeName());
+                txtPatientNote.Text = string.Empty;
+                RefreshPatientCard(selectedPatient);
+                ShowPatientMessagesPanel();
+                SetStatus("Dodano notatkę pacjenta.");
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
+        private void btnDeletePatientNote_Click(object sender, EventArgs e)
+        {
+            PatientNote note = GetSelectedPatientNote();
+            if (note == null)
+            {
+                ShowError("Wybierz notatkę do usunięcia.");
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                "Czy usunąć wybraną notatkę pacjenta?",
+                "SISMED",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            dataStore.DeletePatientNote(note.Id);
+            RefreshPatientCard(selectedPatient);
+            ShowPatientMessagesPanel();
+            SetStatus("Usunięto notatkę pacjenta.");
+        }
+
+        private void LoadPatientNotes()
+        {
+            dgvPatientNotes.Rows.Clear();
+            if (selectedPatient == null)
+            {
+                return;
+            }
+
+            foreach (PatientNote note in dataStore.GetPatientNotes(selectedPatient.Id))
+            {
+                int rowIndex = dgvPatientNotes.Rows.Add(
+                    note.CreatedAt.ToString("dd.MM.yyyy HH:mm"),
+                    Safe(note.CreatedByEmployee),
+                    note.Text ?? string.Empty);
+                dgvPatientNotes.Rows[rowIndex].Tag = note;
+            }
+
+            dgvPatientNotes.ClearSelection();
+        }
+
+        private PatientNote GetSelectedPatientNote()
+        {
+            if (dgvPatientNotes.CurrentRow == null)
+            {
+                return null;
+            }
+
+            return dgvPatientNotes.CurrentRow.Tag as PatientNote;
+        }
+
+        private void LoadAppointmentSummaryGrid(DataGridView grid, IEnumerable<Appointment> appointments)
+        {
+            grid.Rows.Clear();
+
+            foreach (Appointment appointment in appointments)
+            {
+                Doctor doctor = dataStore.GetDoctor(appointment.DoctorId);
+                int rowIndex = grid.Rows.Add(
+                    appointment.StartAt.ToString("dd.MM.yyyy HH:mm"),
+                    GetAppointmentServiceName(doctor),
+                    doctor == null ? "-" : doctor.DisplayName,
+                    GetPatientAppointmentStatus(appointment));
+                grid.Rows[rowIndex].Tag = appointment;
+            }
+
+            grid.ClearSelection();
+        }
+
+        private string GetAppointmentServiceName(Doctor doctor)
+        {
+            if (doctor == null)
+            {
+                return "-";
+            }
+
+            MedicalService service = dataStore.GetServices()
+                .FirstOrDefault(s => string.Equals(s.Specialization, doctor.Specialization, StringComparison.OrdinalIgnoreCase));
+
+            return service == null ? Safe(doctor.Specialization) : Safe(service.Name);
+        }
+
+        private static string GetPatientAppointmentStatus(Appointment appointment)
+        {
+            if (appointment.Status == AppointmentStatus.Reserved && appointment.StartAt >= DateTime.Now)
+            {
+                return "Zaplanowana";
+            }
+
+            if (appointment.Status == AppointmentStatus.Reserved)
+            {
+                return "Historyczna";
+            }
+
+            if (appointment.Status == AppointmentStatus.Cancelled)
+            {
+                return "Anulowana";
+            }
+
+            return appointment.StatusText;
+        }
+
+        private bool EnsurePatientSelected()
+        {
+            if (selectedPatient != null)
+            {
+                SetPatientActionButtonsEnabled(true);
+                return true;
+            }
+
+            ShowPatientEmptyPanel("Najpierw wyszukaj i wybierz pacjenta.");
+            ShowError("Najpierw wyszukaj i wybierz pacjenta.");
+            return false;
+        }
+
+        private void SetPatientActionButtonsEnabled(bool enabled)
+        {
+            btnPatientMessages.Enabled = enabled;
+            btnPatientBook.Enabled = enabled;
+            btnPatientPlanned.Enabled = enabled;
+            btnPatientHistory.Enabled = enabled;
+            btnAddPatientNote.Enabled = enabled;
+            btnDeletePatientNote.Enabled = enabled;
+        }
+
+        private string GetCurrentEmployeeName()
+        {
+            if (currentEmployee == null)
+            {
+                return "Pracownik";
+            }
+
+            return string.IsNullOrWhiteSpace(currentEmployee.FullName)
+                ? Safe(currentEmployee.Login)
+                : currentEmployee.FullName;
+        }
+
         private void RefreshPatientCard(Patient patient)
         {
             if (patient == null)
@@ -645,6 +1010,7 @@ namespace VS_CUWSISMED
                 lblPatientWarnings.Text = "Ostrzezenia: 0/3";
                 lblPatientNotes.Text = "Notatka: -";
                 lblPatientStatus.Text = string.Empty;
+                RefreshPatientDetailCard(null, 0);
                 return;
             }
 
@@ -660,11 +1026,45 @@ namespace VS_CUWSISMED
 
             IReadOnlyList<PatientWarning> warnings = dataStore.GetPatientWarnings(current.Id);
             IReadOnlyList<PatientNote> notes = dataStore.GetPatientNotes(current.Id);
-            lblPatientWarnings.Text = "Ostrzezenia: " + Math.Max(current.WarningCount, warnings.Count) + "/3";
+            int warningCount = Math.Max(current.WarningCount, warnings.Count);
+            lblPatientWarnings.Text = "Ostrzezenia: " + warningCount + "/3";
             lblPatientNotes.Text = "Notatka: " + (notes.Count > 0 ? Truncate(notes[0].Text, 44) : "-");
             lblPatientStatus.Text = current.IsBlocked
                 ? "Blokada do " + current.BlockedUntil.Value.ToString("dd.MM.yyyy")
                 : string.Empty;
+            RefreshPatientDetailCard(current, warningCount);
+        }
+
+        private void RefreshPatientDetailCard(Patient patient, int warningCount)
+        {
+            if (patient == null)
+            {
+                lblPatientPanelName.Text = "- Brak wybranego pacjenta -";
+                lblPatientPanelPesel.Text = "PESEL: -";
+                lblPatientPanelBirthDate.Text = "Data ur.: -";
+                lblPatientPanelPhone.Text = "Tel: -";
+                lblPatientPanelEmail.Text = "E-mail: -";
+                lblPatientPanelAddress.Text = "Adres: -";
+                lblPatientPanelWarnings.Text = "Ostrzeżenia: 0";
+                lblPatientPanelBlock.Text = "Blokada rezerwacji: nie";
+                lblPatientPanelBlock.ForeColor = SismedTheme.Success;
+                SetPatientActionButtonsEnabled(false);
+                return;
+            }
+
+            lblPatientPanelName.Text = patient.DisplayName;
+            lblPatientPanelPesel.Text = "PESEL: " + Safe(patient.Pesel);
+            lblPatientPanelBirthDate.Text = "Data ur.: "
+                + (patient.BirthDate.HasValue ? patient.BirthDate.Value.ToString("dd.MM.yyyy") : "-");
+            lblPatientPanelPhone.Text = "Tel: " + Safe(patient.Phone);
+            lblPatientPanelEmail.Text = "E-mail: " + Safe(patient.Email);
+            lblPatientPanelAddress.Text = "Adres: " + Safe(patient.Address);
+            lblPatientPanelWarnings.Text = "Ostrzeżenia: " + warningCount;
+            lblPatientPanelBlock.Text = patient.IsBlocked
+                ? "Blokada rezerwacji: do " + patient.BlockedUntil.Value.ToString("dd.MM.yyyy")
+                : "Blokada rezerwacji: nie";
+            lblPatientPanelBlock.ForeColor = patient.IsBlocked ? SismedTheme.Danger : SismedTheme.Success;
+            SetPatientActionButtonsEnabled(true);
         }
 
         private void RefreshEmployeeDetails(Employee employee)
