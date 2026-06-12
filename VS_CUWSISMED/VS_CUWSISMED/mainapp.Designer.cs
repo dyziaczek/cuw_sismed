@@ -613,15 +613,62 @@ namespace VS_CUWSISMED
             pnlPatientHistoryPanel.Controls.Add(dgvPatientHistory);
 
             pnlPatientBookingPanel = CreatePatientActionPanel();
+            pnlPatientBookingTop = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 136,
+                BackColor = SismedTheme.CardSoft,
+                Padding = new Padding(12)
+            };
+            lblPatientBookingService = CreateInlineLabel("Usługa:", 12, 18, muted, labelFont);
+            cmbPatientBookingService = CreateComboBox(88, 12, 300);
+            cmbPatientBookingService.SelectedIndexChanged += cmbPatientBookingService_SelectedIndexChanged;
+            btnPatientBookingNext = CreateActionButton("Dalej", 404, 12, 96, magenta);
+            btnPatientBookingNext.Enabled = false;
+            btnPatientBookingNext.Click += btnPatientBookingNext_Click;
+            lblPatientBookingDoctor = CreateInlineLabel("Lekarz:", 12, 64, muted, labelFont);
+            cmbPatientBookingDoctor = CreateComboBox(88, 58, 300);
+            cmbPatientBookingDoctor.Enabled = false;
+            lblPatientBookingRange = CreateInlineLabel("Zakres:", 404, 64, muted, labelFont);
+            cmbPatientBookingRange = CreateComboBox(470, 58, 120);
+            cmbPatientBookingRange.Enabled = false;
+            btnPatientBookingSearch = CreateActionButton("Szukaj terminów", 606, 58, 154, blue);
+            btnPatientBookingSearch.Enabled = false;
+            btnPatientBookingSearch.Click += btnPatientBookingSearch_Click;
             lblPatientBookingInfo = new Label
             {
-                Text = "Umawianie wizyty dla wybranego pacjenta będzie przygotowane w następnym etapie.",
-                Dock = DockStyle.Fill,
-                Font = SismedTheme.Font(12f, FontStyle.Bold),
-                ForeColor = SismedTheme.Navy,
-                TextAlign = ContentAlignment.MiddleCenter
+                Text = "Wybierz usługę lub specjalizację, aby rozpocząć umawianie wizyty.",
+                Location = new Point(12, 104),
+                Size = new Size(760, 24),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = normalFont,
+                ForeColor = muted
             };
-            pnlPatientBookingPanel.Controls.Add(lblPatientBookingInfo);
+            pnlPatientBookingTop.Controls.AddRange(new Control[]
+            {
+                lblPatientBookingService, cmbPatientBookingService, btnPatientBookingNext,
+                lblPatientBookingDoctor, cmbPatientBookingDoctor, lblPatientBookingRange,
+                cmbPatientBookingRange, btnPatientBookingSearch, lblPatientBookingInfo
+            });
+
+            dgvPatientBookingSlots = CreateGrid();
+            dgvPatientBookingSlots.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvPatientBookingSlots.Columns.Add(new DataGridViewTextBoxColumn { Name = "bookDate", HeaderText = "Data", Width = 105 });
+            dgvPatientBookingSlots.Columns.Add(new DataGridViewTextBoxColumn { Name = "bookDay", HeaderText = "Dzień tygodnia", Width = 120 });
+            dgvPatientBookingSlots.Columns.Add(new DataGridViewTextBoxColumn { Name = "bookTime", HeaderText = "Godzina", Width = 90 });
+            dgvPatientBookingSlots.Columns.Add(new DataGridViewTextBoxColumn { Name = "bookDoctor", HeaderText = "Lekarz", Width = 180 });
+            dgvPatientBookingSlots.Columns.Add(new DataGridViewTextBoxColumn { Name = "bookService", HeaderText = "Specjalizacja/usługa", Width = 220 });
+            dgvPatientBookingSlots.Columns.Add(new DataGridViewButtonColumn
+            {
+                Name = "bookAction",
+                HeaderText = "",
+                Text = "Umów",
+                UseColumnTextForButtonValue = true,
+                Width = 84
+            });
+            dgvPatientBookingSlots.CellContentClick += dgvPatientBookingSlots_CellContentClick;
+            pnlPatientBookingPanel.Controls.Add(dgvPatientBookingSlots);
+            pnlPatientBookingPanel.Controls.Add(pnlPatientBookingTop);
 
             pnlPatientActionBody.Controls.AddRange(new Control[]
             {
@@ -1019,7 +1066,7 @@ namespace VS_CUWSISMED
         private Panel pnlReceptionScreen, pnlCalendarScreen, pnlDocumentsScreen, pnlPersonnelScreen;
         private Panel pnlReceptionSidebar, pnlReceptionContent, pnlPatientCard, pnlBookTop, pnlCalTop;
         private Panel pnlPatientActionBody, pnlPatientEmptyPanel, pnlPatientResultsPanel, pnlPatientNotesPanel;
-        private Panel pnlPatientPlannedPanel, pnlPatientHistoryPanel, pnlPatientBookingPanel;
+        private Panel pnlPatientPlannedPanel, pnlPatientHistoryPanel, pnlPatientBookingPanel, pnlPatientBookingTop;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails;
         private TableLayoutPanel pnlDashboardCards;
         private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost;
@@ -1030,6 +1077,7 @@ namespace VS_CUWSISMED
         private Label lblPatientPanelTitle, lblPatientPanelName, lblPatientPanelPesel, lblPatientPanelBirthDate;
         private Label lblPatientPanelPhone, lblPatientPanelEmail, lblPatientPanelAddress, lblPatientPanelWarnings;
         private Label lblPatientPanelBlock, lblPatientActionTitle, lblPatientEmptyInfo, lblPatientBookingInfo;
+        private Label lblPatientBookingService, lblPatientBookingDoctor, lblPatientBookingRange;
         private Label lblTodayVisitsValue, lblPlannedVisitsValue, lblPatientsValue;
         private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate;
         private Label lblSwapResult;
@@ -1042,12 +1090,15 @@ namespace VS_CUWSISMED
         private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
         private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
         private Guna2Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
+        private Guna2Button btnPatientBookingNext, btnPatientBookingSearch;
         private Guna2Button btnAddPatientNote, btnDeletePatientNote;
         private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
         private ComboBox cmbDoctor, cmbCalDoctor;
+        private ComboBox cmbPatientBookingService, cmbPatientBookingDoctor, cmbPatientBookingRange;
         private Guna2DateTimePicker dtpBook, dtpCal;
         private DataGridView dgvSlots, dgvCal, dgvReserved, dgvEmployees;
         private DataGridView dgvPatientResults, dgvPatientNotes, dgvPatientPlanned, dgvPatientHistory;
+        private DataGridView dgvPatientBookingSlots;
         private TabControl tabControl;
         private TabPage tabPatient, tabBook, tabReserved;
     }

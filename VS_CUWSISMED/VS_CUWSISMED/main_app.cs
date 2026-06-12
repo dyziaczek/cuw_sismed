@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -22,6 +23,62 @@ namespace VS_CUWSISMED
         private const string PatientSectionHistory = "history";
         private const string PatientSectionBooking = "booking";
 
+        private sealed class BookingServiceOption
+        {
+            public MedicalService Service { get; set; }
+
+            public string Text
+            {
+                get
+                {
+                    if (Service == null)
+                    {
+                        return string.Empty;
+                    }
+
+                    return Service.Name + " - " + Service.Specialization;
+                }
+            }
+        }
+
+        private sealed class BookingDoctorOption
+        {
+            public Doctor Doctor { get; set; }
+            public string Specialization { get; set; }
+
+            public bool IsAnyDoctor
+            {
+                get { return Doctor == null; }
+            }
+
+            public string Text
+            {
+                get
+                {
+                    return IsAnyDoctor
+                        ? "Dowolny lekarz"
+                        : Doctor.DisplayName + " - " + Doctor.Specialization;
+                }
+            }
+        }
+
+        private sealed class BookingRangeOption
+        {
+            public int Days { get; set; }
+
+            public string Text
+            {
+                get { return Days + " dni"; }
+            }
+        }
+
+        private sealed class PatientBookingSlot
+        {
+            public Doctor Doctor { get; set; }
+            public MedicalService Service { get; set; }
+            public DateTime StartAt { get; set; }
+        }
+
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
 
@@ -42,6 +99,7 @@ namespace VS_CUWSISMED
 
             ConfigureCurrentUser();
             LoadDoctorLists();
+            LoadPatientBookingOptions();
             RefreshPatientCard(null);
             ShowPatientEmptyPanel("Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.");
             LoadCalendar();
@@ -495,6 +553,28 @@ namespace VS_CUWSISMED
             cmbCalDoctor.ValueMember = "Id";
         }
 
+        private void LoadPatientBookingOptions()
+        {
+            var serviceOptions = dataStore.GetServices()
+                .Select(s => new BookingServiceOption { Service = s })
+                .ToList();
+
+            cmbPatientBookingService.DisplayMember = "Text";
+            cmbPatientBookingService.DataSource = serviceOptions;
+            cmbPatientBookingService.SelectedIndex = -1;
+
+            var rangeOptions = new List<BookingRangeOption>
+            {
+                new BookingRangeOption { Days = 7 },
+                new BookingRangeOption { Days = 14 },
+                new BookingRangeOption { Days = 30 }
+            };
+
+            cmbPatientBookingRange.DisplayMember = "Text";
+            cmbPatientBookingRange.DataSource = rangeOptions;
+            cmbPatientBookingRange.SelectedIndex = 0;
+        }
+
         private void LoadSlots()
         {
             Doctor doctor = cmbDoctor.SelectedItem as Doctor;
@@ -763,10 +843,288 @@ namespace VS_CUWSISMED
             }
 
             activePatientSection = PatientSectionBooking;
-            lblPatientBookingInfo.Text = "Umawianie wizyty dla pacjenta "
-                + selectedPatient.DisplayName
-                + " będzie przygotowane w następnym etapie.";
+            PreparePatientBookingPanel();
             ShowPatientActionPanel(pnlPatientBookingPanel, "Umów wizytę");
+        }
+
+        private void PreparePatientBookingPanel()
+        {
+            dgvPatientBookingSlots.Rows.Clear();
+            Patient patient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+            selectedPatient = patient;
+
+            bool isBlocked = patient.IsBlocked;
+            cmbPatientBookingService.Enabled = !isBlocked;
+            cmbPatientBookingDoctor.Enabled = false;
+            cmbPatientBookingRange.Enabled = false;
+            btnPatientBookingNext.Enabled = !isBlocked && GetSelectedBookingService() != null;
+            btnPatientBookingSearch.Enabled = false;
+
+            if (isBlocked)
+            {
+                lblPatientBookingInfo.ForeColor = SismedTheme.Danger;
+                lblPatientBookingInfo.Text = "Pacjent ma aktywną blokadę rezerwacji do "
+                    + patient.BlockedUntil.Value.ToString("dd.MM.yyyy")
+                    + ". Nie można umówić nowej wizyty.";
+                return;
+            }
+
+            lblPatientBookingInfo.ForeColor = SismedTheme.Muted;
+            lblPatientBookingInfo.Text = "Wybierz usługę lub specjalizację, a następnie przejdź dalej.";
+        }
+
+        private void cmbPatientBookingService_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            dgvPatientBookingSlots.Rows.Clear();
+            cmbPatientBookingDoctor.DataSource = null;
+            cmbPatientBookingDoctor.Enabled = false;
+            cmbPatientBookingRange.Enabled = false;
+            btnPatientBookingSearch.Enabled = false;
+            btnPatientBookingNext.Enabled = selectedPatient != null
+                && !selectedPatient.IsBlocked
+                && GetSelectedBookingService() != null;
+
+            if (GetSelectedBookingService() != null)
+            {
+                lblPatientBookingInfo.ForeColor = SismedTheme.Muted;
+                lblPatientBookingInfo.Text = "Wybrano usługę. Kliknij Dalej, aby wybrać lekarza i zakres terminów.";
+            }
+        }
+
+        private void btnPatientBookingNext_Click(object sender, EventArgs e)
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            MedicalService service = GetSelectedBookingService();
+            if (service == null)
+            {
+                ShowError("Wybierz usługę lub specjalizację.");
+                return;
+            }
+
+            LoadBookingDoctors(service);
+        }
+
+        private void LoadBookingDoctors(MedicalService service)
+        {
+            var doctors = dataStore.GetDoctors()
+                .Where(d => string.Equals(d.Specialization, service.Specialization, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(d => d.LastName)
+                .ThenBy(d => d.FirstName)
+                .ToList();
+
+            var options = new List<BookingDoctorOption>
+            {
+                new BookingDoctorOption { Specialization = service.Specialization }
+            };
+            options.AddRange(doctors.Select(d => new BookingDoctorOption
+            {
+                Doctor = d,
+                Specialization = service.Specialization
+            }));
+
+            cmbPatientBookingDoctor.DisplayMember = "Text";
+            cmbPatientBookingDoctor.DataSource = options;
+            cmbPatientBookingDoctor.SelectedIndex = 0;
+            cmbPatientBookingDoctor.Enabled = doctors.Count > 0;
+            cmbPatientBookingRange.Enabled = doctors.Count > 0;
+            btnPatientBookingSearch.Enabled = doctors.Count > 0;
+            dgvPatientBookingSlots.Rows.Clear();
+
+            lblPatientBookingInfo.ForeColor = doctors.Count > 0 ? SismedTheme.Muted : SismedTheme.Danger;
+            lblPatientBookingInfo.Text = doctors.Count > 0
+                ? "Wybierz lekarza albo opcję Dowolny lekarz, zakres dni i kliknij Szukaj terminów."
+                : "Brak lekarzy dla wybranej specjalizacji.";
+        }
+
+        private void btnPatientBookingSearch_Click(object sender, EventArgs e)
+        {
+            SearchPatientBookingSlots();
+        }
+
+        private void SearchPatientBookingSlots()
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            if (selectedPatient.IsBlocked)
+            {
+                ShowError("Pacjent ma aktywną blokadę rezerwacji do "
+                    + selectedPatient.BlockedUntil.Value.ToString("dd.MM.yyyy") + ".");
+                return;
+            }
+
+            MedicalService service = GetSelectedBookingService();
+            BookingDoctorOption doctorOption = cmbPatientBookingDoctor.SelectedItem as BookingDoctorOption;
+            BookingRangeOption rangeOption = cmbPatientBookingRange.SelectedItem as BookingRangeOption;
+
+            if (service == null || doctorOption == null || rangeOption == null)
+            {
+                ShowError("Wybierz usługę, lekarza i zakres wyszukiwania.");
+                return;
+            }
+
+            IEnumerable<Doctor> doctors = GetBookingDoctorsForSearch(service, doctorOption);
+            var slots = new List<PatientBookingSlot>();
+
+            for (int offset = 0; offset < rangeOption.Days; offset++)
+            {
+                DateTime date = DateTime.Today.AddDays(offset);
+                foreach (Doctor doctor in doctors)
+                {
+                    foreach (AvailableSlot slot in dataStore.GetAvailableSlots(doctor.Id, date))
+                    {
+                        if (!HasSelectedPatientBookingConflict(doctor.Specialization, slot.StartAt))
+                        {
+                            slots.Add(new PatientBookingSlot
+                            {
+                                Doctor = doctor,
+                                Service = service,
+                                StartAt = slot.StartAt
+                            });
+                        }
+                    }
+                }
+            }
+
+            LoadPatientBookingSlots(slots
+                .OrderBy(s => s.StartAt)
+                .ThenBy(s => s.Doctor.LastName)
+                .ThenBy(s => s.Doctor.FirstName));
+        }
+
+        private IEnumerable<Doctor> GetBookingDoctorsForSearch(MedicalService service, BookingDoctorOption doctorOption)
+        {
+            if (!doctorOption.IsAnyDoctor)
+            {
+                return new List<Doctor> { doctorOption.Doctor };
+            }
+
+            return dataStore.GetDoctors()
+                .Where(d => string.Equals(d.Specialization, service.Specialization, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(d => d.LastName)
+                .ThenBy(d => d.FirstName)
+                .ToList();
+        }
+
+        private bool HasSelectedPatientBookingConflict(string specialization, DateTime startAt)
+        {
+            return dataStore.GetAllAppointmentsForPatient(selectedPatient.Id)
+                .Any(a =>
+                {
+                    if (a.Status != AppointmentStatus.Reserved)
+                    {
+                        return false;
+                    }
+
+                    if (a.StartAt == startAt)
+                    {
+                        return true;
+                    }
+
+                    Doctor doctor = dataStore.GetDoctor(a.DoctorId);
+                    return doctor != null
+                        && a.StartAt.Date == startAt.Date
+                        && string.Equals(doctor.Specialization, specialization, StringComparison.OrdinalIgnoreCase);
+                });
+        }
+
+        private void LoadPatientBookingSlots(IEnumerable<PatientBookingSlot> slots)
+        {
+            dgvPatientBookingSlots.Rows.Clear();
+            CultureInfo polish = CultureInfo.GetCultureInfo("pl-PL");
+
+            foreach (PatientBookingSlot slot in slots)
+            {
+                int rowIndex = dgvPatientBookingSlots.Rows.Add(
+                    slot.StartAt.ToString("dd.MM.yyyy"),
+                    polish.DateTimeFormat.GetDayName(slot.StartAt.DayOfWeek),
+                    slot.StartAt.ToString("HH:mm"),
+                    slot.Doctor.DisplayName,
+                    slot.Service.Name + " / " + slot.Doctor.Specialization,
+                    "Umów");
+                dgvPatientBookingSlots.Rows[rowIndex].Tag = slot;
+            }
+
+            dgvPatientBookingSlots.ClearSelection();
+            lblPatientBookingInfo.ForeColor = dgvPatientBookingSlots.Rows.Count > 0
+                ? SismedTheme.Success
+                : SismedTheme.Warning;
+            lblPatientBookingInfo.Text = dgvPatientBookingSlots.Rows.Count > 0
+                ? "Znaleziono wolne terminy: " + dgvPatientBookingSlots.Rows.Count + ". Kliknij Umów przy wybranym terminie."
+                : "Nie znaleziono wolnych terminów w wybranym zakresie.";
+        }
+
+        private void dgvPatientBookingSlots_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0)
+            {
+                return;
+            }
+
+            if (dgvPatientBookingSlots.Columns[e.ColumnIndex].Name != "bookAction")
+            {
+                return;
+            }
+
+            PatientBookingSlot slot = dgvPatientBookingSlots.Rows[e.RowIndex].Tag as PatientBookingSlot;
+            if (slot == null)
+            {
+                return;
+            }
+
+            ReservePatientBookingSlot(slot);
+        }
+
+        private void ReservePatientBookingSlot(PatientBookingSlot slot)
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                "Czy umówić wizytę pacjenta " + selectedPatient.DisplayName
+                + " na " + slot.StartAt.ToString("dd.MM.yyyy HH:mm")
+                + " u lekarza " + slot.Doctor.DisplayName + "?",
+                "SISMED",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                dataStore.ReserveAppointment(slot.Doctor.Id, selectedPatient.Id, slot.StartAt);
+                selectedPatient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+                RefreshPatientCard(selectedPatient);
+                RefreshReservedAppointments();
+                LoadCalendar();
+                LoadSlots();
+                RefreshReceptionStats();
+                MessageBox.Show("Wizyta została zarezerwowana.", "SISMED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                SetStatus("Zarezerwowano wizytę: " + slot.StartAt.ToString("dd.MM.yyyy HH:mm"));
+                ShowPatientPlannedPanel();
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+                SearchPatientBookingSlots();
+            }
+        }
+
+        private MedicalService GetSelectedBookingService()
+        {
+            BookingServiceOption option = cmbPatientBookingService.SelectedItem as BookingServiceOption;
+            return option == null ? null : option.Service;
         }
 
         private void ShowPatientActionPanel(Panel panel, string title)
