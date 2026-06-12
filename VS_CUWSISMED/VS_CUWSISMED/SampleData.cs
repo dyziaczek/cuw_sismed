@@ -25,22 +25,31 @@ namespace VS_CUWSISMED
     {
         public static ClinicSeedData Create()
         {
-            string salt;
-            string hash = PasswordHasher.CreateHash("admin", out salt);
-
             var data = new ClinicSeedData();
 
-            data.Employees.Add(new Employee
-            {
-                Id = 1,
-                Login = "rejestrator",
-                DisplayName = "Rejestrator SISMED",
-                Role = "Rejestracja",
-                PasswordHash = hash,
-                PasswordSalt = salt,
-                CreatedAt = DateTime.Now,
-                IsActive = true
-            });
+            data.Employees.Add(CreateEmployee(
+                1,
+                "admin",
+                "Administrator",
+                "SISMED",
+                "75010112345",
+                new DateTime(1975, 1, 1),
+                EmployeeRoles.Administrator,
+                "admin",
+                false,
+                null));
+
+            data.Employees.Add(CreateEmployee(
+                2,
+                "rejestrator",
+                "Rejestrator",
+                "SISMED",
+                "85050554321",
+                new DateTime(1985, 5, 5),
+                EmployeeRoles.Reception,
+                "admin",
+                false,
+                null));
 
             data.Patients.Add(new Patient
             {
@@ -90,6 +99,30 @@ namespace VS_CUWSISMED
                 Specialization = "Dermatolog"
             });
 
+            data.Employees.Add(CreateEmployee(
+                3,
+                "mzielinska",
+                "Maria",
+                "Zielinska",
+                "79030311111",
+                new DateTime(1979, 3, 3),
+                EmployeeRoles.Reception,
+                "demo",
+                true,
+                "Internista"));
+
+            data.Employees.Add(CreateEmployee(
+                4,
+                "pwisniewski",
+                "Piotr",
+                "Wisniewski",
+                "81040422222",
+                new DateTime(1981, 4, 4),
+                EmployeeRoles.Reception,
+                "demo",
+                true,
+                "Kardiolog"));
+
             int scheduleId = 1;
             foreach (var doctor in data.Doctors)
             {
@@ -127,6 +160,40 @@ namespace VS_CUWSISMED
             });
 
             return data;
+        }
+
+        private static Employee CreateEmployee(
+            int id,
+            string login,
+            string firstName,
+            string lastName,
+            string pesel,
+            DateTime birthDate,
+            string role,
+            string password,
+            bool isDoctor,
+            string specialization)
+        {
+            string salt;
+            string hash = PasswordHasher.CreateHash(password, out salt);
+
+            return new Employee
+            {
+                Id = id,
+                Login = login,
+                FirstName = firstName,
+                LastName = lastName,
+                Pesel = pesel,
+                BirthDate = birthDate,
+                DisplayName = string.Format("{0} {1}", firstName, lastName).Trim(),
+                Role = EmployeeRoles.Normalize(role),
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                CreatedAt = DateTime.Now,
+                IsActive = true,
+                IsDoctor = isDoctor,
+                Specialization = specialization
+            };
         }
     }
 }

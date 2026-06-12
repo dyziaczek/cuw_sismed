@@ -43,12 +43,18 @@ CREATE TABLE IF NOT EXISTS schedules (
 CREATE TABLE IF NOT EXISTS employees (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     login TEXT NOT NULL UNIQUE,
+    first_name TEXT,
+    last_name TEXT,
+    pesel TEXT,
+    birth_date TEXT,
     display_name TEXT NOT NULL,
     role TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1
+    is_active INTEGER NOT NULL DEFAULT 1,
+    is_doctor INTEGER NOT NULL DEFAULT 0,
+    specialization TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_patients_search
@@ -59,3 +65,6 @@ CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date
 
 CREATE INDEX IF NOT EXISTS idx_appointments_patient
     ON appointments(patient_id, start_at, status);
+
+CREATE INDEX IF NOT EXISTS idx_employees_search
+    ON employees(first_name, last_name, pesel, birth_date, login);

@@ -2,6 +2,22 @@ using System;
 
 namespace VS_CUWSISMED
 {
+    public static class EmployeeRoles
+    {
+        public const string Administrator = "Administrator";
+        public const string Reception = "Rejestracja";
+
+        public static string Normalize(string role)
+        {
+            if (string.Equals(role, Administrator, StringComparison.OrdinalIgnoreCase))
+            {
+                return Administrator;
+            }
+
+            return Reception;
+        }
+    }
+
     public enum AppointmentStatus
     {
         Free,
@@ -101,12 +117,43 @@ namespace VS_CUWSISMED
     {
         public int Id { get; set; }
         public string Login { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Pesel { get; set; }
+        public DateTime? BirthDate { get; set; }
         public string DisplayName { get; set; }
         public string Role { get; set; }
         public string PasswordHash { get; set; }
         public string PasswordSalt { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }
+        public bool IsDoctor { get; set; }
+        public string Specialization { get; set; }
+
+        public string FullName
+        {
+            get
+            {
+                string fullName = string.Format("{0} {1}", FirstName, LastName).Trim();
+                return string.IsNullOrWhiteSpace(fullName) ? DisplayName : fullName;
+            }
+        }
+
+        public bool IsAdministrator
+        {
+            get
+            {
+                return string.Equals(Role, EmployeeRoles.Administrator, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        public string StatusText
+        {
+            get
+            {
+                return IsActive ? "Aktywny" : "Nieaktywny";
+            }
+        }
     }
 
     public sealed class AvailableSlot

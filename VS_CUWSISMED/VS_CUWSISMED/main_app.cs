@@ -12,6 +12,8 @@ namespace VS_CUWSISMED
         private readonly Employee currentEmployee;
         private Patient selectedPatient;
         private Patient swapPatient;
+        private Employee selectedEmployee;
+        private string lastStatus;
 
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
@@ -30,12 +32,33 @@ namespace VS_CUWSISMED
             currentEmployee = employee;
             InitializeComponent();
             MouseDown += MoveForm;
+
+            ConfigureCurrentUser();
             LoadDoctorLists();
             RefreshPatientCard(null);
             LoadCalendar();
             RefreshReservedAppointments();
-            SetStatus("Zalogowano: " + (currentEmployee == null ? "pracownik" : currentEmployee.DisplayName)
-                + " | " + AppServices.StorageInfo);
+            LoadEmployeeList(string.Empty);
+            ShowReceptionScreen();
+            SetStatus("Gotowy");
+        }
+
+        private bool IsCurrentUserAdministrator
+        {
+            get
+            {
+                return currentEmployee != null && currentEmployee.IsAdministrator;
+            }
+        }
+
+        private void ConfigureCurrentUser()
+        {
+            btnAddEmployee.Visible = IsCurrentUserAdministrator;
+            btnDeactivateEmployee.Visible = IsCurrentUserAdministrator;
+            lblPersonnelAccess.Text = IsCurrentUserAdministrator
+                ? string.Empty
+                : "Tryb podgladu: tylko administrator moze dodawac i dezaktywowac konta.";
+            UpdateCurrentUserLabel();
         }
 
         private void MoveForm(object sender, MouseEventArgs e)
@@ -45,6 +68,57 @@ namespace VS_CUWSISMED
                 ReleaseCapture();
                 SendMessage(Handle, 0x112, 0xf012, 0);
             }
+        }
+
+        private void btnNavReception_Click(object sender, EventArgs e)
+        {
+            ShowReceptionScreen();
+        }
+
+        private void btnNavCalendar_Click(object sender, EventArgs e)
+        {
+            ShowScreen(pnlCalendarScreen, "KALENDARZ WIZYT");
+            LoadCalendar();
+        }
+
+        private void btnNavDocuments_Click(object sender, EventArgs e)
+        {
+            ShowScreen(pnlDocumentsScreen, "DOKUMENTY");
+        }
+
+        private void btnNavPersonnel_Click(object sender, EventArgs e)
+        {
+            ShowScreen(pnlPersonnelScreen, "PERSONEL");
+            LoadEmployeeList(txtEmployeeSearch.Text);
+        }
+
+        private void ShowReceptionScreen()
+        {
+            ShowScreen(pnlReceptionScreen, "RECEPCJA");
+        }
+
+        private void ShowScreen(Panel panel, string title)
+        {
+            pnlReceptionScreen.Visible = false;
+            pnlCalendarScreen.Visible = false;
+            pnlDocumentsScreen.Visible = false;
+            pnlPersonnelScreen.Visible = false;
+
+            panel.Visible = true;
+            panel.BringToFront();
+            lblScreenTitle.Text = title;
+            SetActiveNav(title);
+        }
+
+        private void SetActiveNav(string title)
+        {
+            Color blue = Color.FromArgb(26, 72, 168);
+            Color magenta = Color.FromArgb(218, 0, 148);
+
+            btnNavCalendar.FillColor = title == "KALENDARZ WIZYT" ? magenta : blue;
+            btnNavReception.FillColor = title == "RECEPCJA" ? magenta : blue;
+            btnNavDocuments.FillColor = title == "DOKUMENTY" ? magenta : blue;
+            btnNavPersonnel.FillColor = title == "PERSONEL" ? magenta : blue;
         }
 
         private void btnSearch_Click(object sender, EventArgs e)
@@ -93,10 +167,7 @@ namespace VS_CUWSISMED
 
         private void btnOpenCalendar_Click(object sender, EventArgs e)
         {
-            using (var calendar = new AppointmentCalendarWindow(dataStore))
-            {
-                calendar.ShowDialog(this);
-            }
+            btnNavCalendar_Click(sender, e);
         }
 
         private void btnLogout_Click(object sender, EventArgs e)
@@ -192,7 +263,7 @@ namespace VS_CUWSISMED
                 return;
             }
 
-            lblSwapResult.ForeColor = Color.LightGreen;
+            lblSwapResult.ForeColor = Color.Green;
             lblSwapResult.Text = swapPatient.DisplayName;
             btnSwap.Enabled = GetSelectedReservedAppointment() != null;
         }
@@ -226,6 +297,85 @@ namespace VS_CUWSISMED
             {
                 ShowError(ex.Message);
             }
+        }
+
+        private void btnEmployeeSearch_Click(object sender, EventArgs e)
+        {
+            LoadEmployeeList(txtEmployeeSearch.Text);
+        }
+
+        private void btnAddEmployee_Click(object sender, EventArgs e)
+        {
+            if (!RequireAdministrator())
+            {
+                return;
+            }
+
+            using (var dialog = new RegisterEmployeeDialog(true))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                LoadEmployeeList(txtEmployeeSearch.Text);
+                SelectEmployee(dialog.RegisteredEmployee);
+                SetStatus("Dodano pracownika: " + dialog.RegisteredEmployee.FullName);
+            }
+        }
+
+        private void btnDeactivateEmployee_Click(object sender, EventArgs e)
+        {
+            if (!RequireAdministrator())
+            {
+                return;
+            }
+
+            Employee employee = GetSelectedEmployee();
+            if (employee == null)
+            {
+                ShowError("Wybierz pracownika.");
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                "Czy dezaktywowac konto pracownika " + employee.FullName + "?",
+                "SISMED",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                AppServices.AuthService.DeactivateEmployee(currentEmployee, employee.Id);
+                LoadEmployeeList(txtEmployeeSearch.Text);
+                SetStatus("Konto pracownika zostalo dezaktywowane.");
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
+        private void dgvEmployees_SelectionChanged(object sender, EventArgs e)
+        {
+            selectedEmployee = GetSelectedEmployee();
+            RefreshEmployeeDetails(selectedEmployee);
+        }
+
+        private bool RequireAdministrator()
+        {
+            if (IsCurrentUserAdministrator)
+            {
+                return true;
+            }
+
+            ShowError("Brak uprawnien administratora do tej funkcji.");
+            return false;
         }
 
         private void LoadDoctorLists()
@@ -310,6 +460,55 @@ namespace VS_CUWSISMED
             }
         }
 
+        private void LoadEmployeeList(string query)
+        {
+            dgvEmployees.Rows.Clear();
+
+            foreach (Employee employee in dataStore.SearchEmployees(query))
+            {
+                int rowIndex = dgvEmployees.Rows.Add(
+                    employee.FullName,
+                    employee.Login,
+                    employee.Role,
+                    employee.StatusText,
+                    employee.IsDoctor ? "Tak" : "Nie");
+                dgvEmployees.Rows[rowIndex].Tag = employee;
+            }
+
+            if (dgvEmployees.Rows.Count > 0)
+            {
+                dgvEmployees.Rows[0].Selected = true;
+                selectedEmployee = dgvEmployees.Rows[0].Tag as Employee;
+            }
+            else
+            {
+                selectedEmployee = null;
+            }
+
+            RefreshEmployeeDetails(selectedEmployee);
+        }
+
+        private void SelectEmployee(Employee employee)
+        {
+            if (employee == null)
+            {
+                return;
+            }
+
+            foreach (DataGridViewRow row in dgvEmployees.Rows)
+            {
+                Employee rowEmployee = row.Tag as Employee;
+                if (rowEmployee != null && rowEmployee.Id == employee.Id)
+                {
+                    row.Selected = true;
+                    dgvEmployees.CurrentCell = row.Cells[0];
+                    selectedEmployee = rowEmployee;
+                    RefreshEmployeeDetails(rowEmployee);
+                    return;
+                }
+            }
+        }
+
         private void RefreshPatientCard(Patient patient)
         {
             if (patient == null)
@@ -334,6 +533,33 @@ namespace VS_CUWSISMED
                 : string.Empty;
         }
 
+        private void RefreshEmployeeDetails(Employee employee)
+        {
+            if (employee == null)
+            {
+                lblEmployeeName.Text = "Imię i nazwisko: -";
+                lblEmployeePesel.Text = "PESEL: -";
+                lblEmployeeBirthDate.Text = "Data urodzenia: -";
+                lblEmployeeLogin.Text = "Login: -";
+                lblEmployeeRole.Text = "Rola: -";
+                lblEmployeeStatus.Text = "Status: -";
+                lblEmployeeDoctor.Text = "Lekarz: -";
+                lblEmployeeSpecialization.Text = "Specjalizacja: -";
+                return;
+            }
+
+            lblEmployeeName.Text = "Imię i nazwisko: " + employee.FullName;
+            lblEmployeePesel.Text = "PESEL: " + Safe(employee.Pesel);
+            lblEmployeeBirthDate.Text = "Data urodzenia: "
+                + (employee.BirthDate.HasValue ? employee.BirthDate.Value.ToString("dd.MM.yyyy") : "-");
+            lblEmployeeLogin.Text = "Login: " + Safe(employee.Login);
+            lblEmployeeRole.Text = "Rola: " + employee.Role;
+            lblEmployeeStatus.Text = "Status: " + employee.StatusText;
+            lblEmployeeDoctor.Text = "Lekarz: " + (employee.IsDoctor ? "Tak" : "Nie");
+            lblEmployeeSpecialization.Text = "Specjalizacja: "
+                + (employee.IsDoctor ? Safe(employee.Specialization) : "-");
+        }
+
         private AvailableSlot GetSelectedSlot()
         {
             if (dgvSlots.CurrentRow == null)
@@ -354,9 +580,35 @@ namespace VS_CUWSISMED
             return dgvReserved.CurrentRow.Tag as Appointment;
         }
 
+        private Employee GetSelectedEmployee()
+        {
+            if (dgvEmployees.CurrentRow == null)
+            {
+                return selectedEmployee;
+            }
+
+            return dgvEmployees.CurrentRow.Tag as Employee;
+        }
+
         private void SetStatus(string message)
         {
-            lblStatus.Text = message;
+            lastStatus = message;
+            UpdateCurrentUserLabel();
+        }
+
+        private void UpdateCurrentUserLabel()
+        {
+            string user = currentEmployee == null
+                ? "pracownik"
+                : currentEmployee.FullName + " - " + currentEmployee.Role;
+
+            lblCurrentUser.Text = user + " | " + AppServices.StorageInfo
+                + (string.IsNullOrWhiteSpace(lastStatus) ? string.Empty : " | " + lastStatus);
+        }
+
+        private static string Safe(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
         }
 
         private static void ShowError(string message)
