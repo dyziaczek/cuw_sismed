@@ -40,6 +40,7 @@ namespace VS_CUWSISMED
             this.guna2Elipse1 = new Guna.UI2.WinForms.Guna2Elipse(this.components);
             this.guna2Elipse2 = new Guna.UI2.WinForms.Guna2Elipse(this.components);
             this.bttnshowpassword = new Guna.UI2.WinForms.Guna2Button();
+            this.bttnregister = new Guna.UI2.WinForms.Guna2Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -185,6 +186,27 @@ namespace VS_CUWSISMED
             this.bttnshowpassword.TabIndex = 6;
             this.bttnshowpassword.Click += new System.EventHandler(this.bttnshowpassword_Click);
             // 
+            // bttnregister
+            // 
+            this.bttnregister.AutoRoundedCorners = true;
+            this.bttnregister.BackColor = System.Drawing.Color.Transparent;
+            this.bttnregister.BorderColor = System.Drawing.Color.Transparent;
+            this.bttnregister.BorderRadius = 14;
+            this.bttnregister.DisabledState.BorderColor = System.Drawing.Color.DarkGray;
+            this.bttnregister.DisabledState.CustomBorderColor = System.Drawing.Color.DarkGray;
+            this.bttnregister.DisabledState.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(169)))), ((int)(((byte)(169)))), ((int)(((byte)(169)))));
+            this.bttnregister.DisabledState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(141)))), ((int)(((byte)(141)))), ((int)(((byte)(141)))));
+            this.bttnregister.FillColor = System.Drawing.Color.Transparent;
+            this.bttnregister.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.bttnregister.ForeColor = System.Drawing.Color.White;
+            this.bttnregister.Location = new System.Drawing.Point(226, 325);
+            this.bttnregister.Name = "bttnregister";
+            this.bttnregister.PressedColor = System.Drawing.Color.Transparent;
+            this.bttnregister.Size = new System.Drawing.Size(178, 30);
+            this.bttnregister.TabIndex = 7;
+            this.bttnregister.Text = "Zarejestruj pracownika";
+            this.bttnregister.Click += new System.EventHandler(this.bttnregister_Click);
+            // 
             // login_page
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -193,6 +215,7 @@ namespace VS_CUWSISMED
             this.BackgroundImage = global::VS_CUWSISMED.Properties.Resources.LOGIN;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.ClientSize = new System.Drawing.Size(616, 410);
+            this.Controls.Add(this.bttnregister);
             this.Controls.Add(this.bttnshowpassword);
             this.Controls.Add(this.txtpassword);
             this.Controls.Add(this.pictureBox1);
@@ -226,6 +249,7 @@ namespace VS_CUWSISMED
         private Guna.UI2.WinForms.Guna2Elipse guna2Elipse1;
         private Guna.UI2.WinForms.Guna2Elipse guna2Elipse2;
         private Guna.UI2.WinForms.Guna2Button bttnshowpassword;
+        private Guna.UI2.WinForms.Guna2Button bttnregister;
     }
 }
 

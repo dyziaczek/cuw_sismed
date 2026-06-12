@@ -142,7 +142,7 @@ namespace VS_CUWSISMED
 
             this.txtSearch.Location = new Point(0, 20);
             this.txtSearch.Size = new Size(256, 34);
-            this.txtSearch.PlaceholderText = "ID / PESEL / Telefon / E-mail";
+            this.txtSearch.PlaceholderText = "PESEL / Telefon / E-mail";
             this.txtSearch.Font = fontNormal;
             this.txtSearch.ForeColor = textPri;
             this.txtSearch.BackColor = cardBg;
@@ -538,7 +538,7 @@ namespace VS_CUWSISMED
 
             this.txtSwapSearch.Location = new Point(12, 104);
             this.txtSwapSearch.Size = new Size(260, 34);
-            this.txtSwapSearch.PlaceholderText = "ID / PESEL / Telefon";
+            this.txtSwapSearch.PlaceholderText = "PESEL / Telefon";
             this.txtSwapSearch.Font = fontNormal;
             this.txtSwapSearch.ForeColor = textPri;
             this.txtSwapSearch.BackColor = bg;

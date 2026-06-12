@@ -1,42 +1,61 @@
-CREATE TABLE patients (
-id INTEGER PRIMARY KEY,
-name TEXT,
-surname TEXT,
-pesel TEXT,
-phone TEXT,
-email TEXT,
-address TEXT,
-warnings INTEGER DEFAULT 0,
-blocked_until DATE
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    pesel TEXT NOT NULL UNIQUE,
+    phone TEXT,
+    email TEXT,
+    address TEXT,
+    warning_count INTEGER NOT NULL DEFAULT 0,
+    blocked_until TEXT
 );
 
-CREATE TABLE doctors (
-id INTEGER PRIMARY KEY,
-name TEXT,
-specialization TEXT
+CREATE TABLE IF NOT EXISTS doctors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    specialization TEXT NOT NULL
 );
 
-CREATE TABLE appointments (
-id INTEGER PRIMARY KEY,
-doctor_id INTEGER,
-patient_id INTEGER,
-date DATE,
-time TIME,
-status TEXT,
-cancel_reason TEXT
+CREATE TABLE IF NOT EXISTS appointments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doctor_id INTEGER NOT NULL,
+    patient_id INTEGER,
+    start_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    cancel_reason TEXT,
+    notes TEXT,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id),
+    FOREIGN KEY (patient_id) REFERENCES patients(id)
 );
 
-CREATE TABLE schedules (
-id INTEGER PRIMARY KEY,
-doctor_id INTEGER,
-day_of_week TEXT,
-start_time TIME,
-end_time TIME
+CREATE TABLE IF NOT EXISTS schedules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doctor_id INTEGER NOT NULL,
+    day_of_week INTEGER NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
 );
 
-CREATE TABLE warnings (
-id INTEGER PRIMARY KEY,
-patient_id INTEGER,
-date DATE,
-reason TEXT
+CREATE TABLE IF NOT EXISTS employees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1
 );
+
+CREATE INDEX IF NOT EXISTS idx_patients_search
+    ON patients(pesel, phone, email);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date
+    ON appointments(doctor_id, start_at, status);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_patient
+    ON appointments(patient_id, start_at, status);

@@ -1,21 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Data.SqlClient;
 using System.Runtime.InteropServices;
 
 namespace VS_CUWSISMED
 {
     public partial class login_page : Form
     {
-        private const bool @true = true;
-
         [DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
 
@@ -41,14 +32,20 @@ namespace VS_CUWSISMED
 
         private void bttnlogin_Click(object sender, EventArgs e)
         {
-            string login = txtusername.Text;
-            string haslo = txtpassword.Text;
+            Employee employee = AppServices.AuthService.Authenticate(txtusername.Text, txtpassword.Text);
 
-            if (login == "rejestrator" && haslo == "admin")
+            if (employee != null)
             {
-                main_app frm = new main_app();
-                frm.Show();
-                this.Hide();
+                main_app frm = new main_app(employee);
+                frm.FormClosed += (closedSender, args) =>
+                {
+                    if (!IsDisposed)
+                    {
+                        Show();
+                    }
+                };
+                frm.Show(this);
+                Hide();
             }
             else
             {
@@ -74,6 +71,14 @@ namespace VS_CUWSISMED
             {
                 txtpassword.PasswordChar = '●';
                 bttnshowpassword.Image = Properties.Resources.open_eye;
+            }
+        }
+
+        private void bttnregister_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new RegisterEmployeeDialog())
+            {
+                dialog.ShowDialog(this);
             }
         }
     }
