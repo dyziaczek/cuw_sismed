@@ -606,7 +606,65 @@ namespace VS_CUWSISMED
 
             pnlPatientPlannedPanel = CreatePatientActionPanel();
             dgvPatientPlanned = CreateAppointmentSummaryGrid();
+            dgvPatientPlanned.SelectionChanged += dgvPatientPlanned_SelectionChanged;
+            pnlPatientPlannedDetails = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 162,
+                BackColor = SismedTheme.CardSoft,
+                Padding = new Padding(14)
+            };
+            lblPlannedAppointmentDetails = new Label
+            {
+                Text = "Wybierz zaplanowaną wizytę, aby zobaczyć szczegóły.",
+                Location = new Point(14, 12),
+                Size = new Size(520, 74),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = normalFont,
+                ForeColor = text
+            };
+            lblPlannedAppointmentTimeLeft = new Label
+            {
+                Text = "",
+                Location = new Point(14, 88),
+                Size = new Size(520, 22),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = SismedTheme.Font(9f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy
+            };
+            txtCancelAppointmentReason = new TextBox
+            {
+                Location = new Point(14, 118),
+                Size = new Size(420, 24),
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
+                Font = normalFont,
+                ForeColor = text,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            btnSwapPatientAppointment = CreateActionButton("Zamień wizytę", 394, 114, 140, SismedTheme.Magenta);
+            btnSwapPatientAppointment.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            btnSwapPatientAppointment.Enabled = false;
+            btnSwapPatientAppointment.Click += btnSwapPatientAppointment_Click;
+            btnCancelPatientAppointment = CreateActionButton("Anuluj wizytę", 548, 114, 150, SismedTheme.Danger);
+            btnCancelPatientAppointment.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            btnCancelPatientAppointment.Enabled = false;
+            btnCancelPatientAppointment.Click += btnCancelPatientAppointment_Click;
+            pnlPatientPlannedDetails.Resize += (sender, args) =>
+            {
+                btnCancelPatientAppointment.Left = Math.Max(548, pnlPatientPlannedDetails.Width - 170);
+                btnSwapPatientAppointment.Left = Math.Max(394, btnCancelPatientAppointment.Left - 154);
+                txtCancelAppointmentReason.Width = Math.Max(240, btnSwapPatientAppointment.Left - 32);
+            };
+            pnlPatientPlannedDetails.Controls.AddRange(new Control[]
+            {
+                lblPlannedAppointmentDetails,
+                lblPlannedAppointmentTimeLeft,
+                txtCancelAppointmentReason,
+                btnSwapPatientAppointment,
+                btnCancelPatientAppointment
+            });
             pnlPatientPlannedPanel.Controls.Add(dgvPatientPlanned);
+            pnlPatientPlannedPanel.Controls.Add(pnlPatientPlannedDetails);
 
             pnlPatientHistoryPanel = CreatePatientActionPanel();
             dgvPatientHistory = CreateAppointmentSummaryGrid();
@@ -1067,6 +1125,7 @@ namespace VS_CUWSISMED
         private Panel pnlReceptionSidebar, pnlReceptionContent, pnlPatientCard, pnlBookTop, pnlCalTop;
         private Panel pnlPatientActionBody, pnlPatientEmptyPanel, pnlPatientResultsPanel, pnlPatientNotesPanel;
         private Panel pnlPatientPlannedPanel, pnlPatientHistoryPanel, pnlPatientBookingPanel, pnlPatientBookingTop;
+        private Panel pnlPatientPlannedDetails;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails;
         private TableLayoutPanel pnlDashboardCards;
         private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost;
@@ -1078,6 +1137,7 @@ namespace VS_CUWSISMED
         private Label lblPatientPanelPhone, lblPatientPanelEmail, lblPatientPanelAddress, lblPatientPanelWarnings;
         private Label lblPatientPanelBlock, lblPatientActionTitle, lblPatientEmptyInfo, lblPatientBookingInfo;
         private Label lblPatientBookingService, lblPatientBookingDoctor, lblPatientBookingRange;
+        private Label lblPlannedAppointmentDetails, lblPlannedAppointmentTimeLeft;
         private Label lblTodayVisitsValue, lblPlannedVisitsValue, lblPatientsValue;
         private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate;
         private Label lblSwapResult;
@@ -1085,12 +1145,13 @@ namespace VS_CUWSISMED
         private Label lblEmployeeRole, lblEmployeeStatus, lblEmployeeDoctor, lblEmployeeSpecialization;
         private Guna2TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
         private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch;
-        private TextBox txtPatientNote;
+        private TextBox txtPatientNote, txtCancelAppointmentReason;
         private Guna2Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
         private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
         private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
         private Guna2Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
         private Guna2Button btnPatientBookingNext, btnPatientBookingSearch;
+        private Guna2Button btnCancelPatientAppointment, btnSwapPatientAppointment;
         private Guna2Button btnAddPatientNote, btnDeletePatientNote;
         private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
         private ComboBox cmbDoctor, cmbCalDoctor;

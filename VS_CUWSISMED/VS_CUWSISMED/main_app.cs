@@ -449,7 +449,7 @@ namespace VS_CUWSISMED
 
             try
             {
-                dataStore.SwapAppointmentPatient(appointment.Id, swapPatient.Id);
+                dataStore.SwapAppointmentPatient(appointment.Id, swapPatient.Id, GetCurrentEmployeeName());
                 SelectPatient(swapPatient, true);
                 LoadCalendar();
                 RefreshReceptionStats();
@@ -818,6 +818,7 @@ namespace VS_CUWSISMED
                 .Where(a => a.Status == AppointmentStatus.Reserved && a.StartAt >= DateTime.Now)
                 .OrderBy(a => a.StartAt);
             LoadAppointmentSummaryGrid(dgvPatientPlanned, appointments);
+            RefreshPlannedAppointmentDetails(GetSelectedPatientPlannedAppointment());
         }
 
         private void ShowPatientHistoryPanel()
@@ -1286,6 +1287,202 @@ namespace VS_CUWSISMED
             }
 
             grid.ClearSelection();
+        }
+
+        private void dgvPatientPlanned_SelectionChanged(object sender, EventArgs e)
+        {
+            RefreshPlannedAppointmentDetails(GetSelectedPatientPlannedAppointment());
+        }
+
+        private Appointment GetSelectedPatientPlannedAppointment()
+        {
+            if (dgvPatientPlanned.CurrentRow == null)
+            {
+                return null;
+            }
+
+            return dgvPatientPlanned.CurrentRow.Tag as Appointment;
+        }
+
+        private void RefreshPlannedAppointmentDetails(Appointment appointment)
+        {
+            if (appointment == null || selectedPatient == null)
+            {
+                lblPlannedAppointmentDetails.Text = "Wybierz zaplanowaną wizytę, aby zobaczyć szczegóły.";
+                lblPlannedAppointmentTimeLeft.Text = string.Empty;
+                txtCancelAppointmentReason.Text = string.Empty;
+                btnCancelPatientAppointment.Enabled = false;
+                btnSwapPatientAppointment.Enabled = false;
+                return;
+            }
+
+            Doctor doctor = dataStore.GetDoctor(appointment.DoctorId);
+            string doctorName = doctor == null ? "-" : doctor.DisplayName;
+            string serviceName = GetAppointmentServiceName(doctor);
+
+            lblPlannedAppointmentDetails.Text =
+                "Data: " + appointment.StartAt.ToString("dd.MM.yyyy")
+                + "    Godzina: " + appointment.StartAt.ToString("HH:mm")
+                + Environment.NewLine
+                + "Lekarz: " + doctorName
+                + "    Usługa: " + serviceName
+                + Environment.NewLine
+                + "Status: " + GetPatientAppointmentStatus(appointment)
+                + "    Pacjent: " + selectedPatient.DisplayName;
+
+            lblPlannedAppointmentTimeLeft.Text = "Do wizyty zostało: " + FormatTimeUntilAppointment(appointment.StartAt);
+            btnCancelPatientAppointment.Enabled = appointment.Status == AppointmentStatus.Reserved
+                && appointment.StartAt >= DateTime.Now;
+            btnSwapPatientAppointment.Enabled = appointment.Status == AppointmentStatus.Reserved
+                && appointment.StartAt >= DateTime.Now;
+        }
+
+        private void btnSwapPatientAppointment_Click(object sender, EventArgs e)
+        {
+            Appointment appointment = GetSelectedPatientPlannedAppointment();
+            if (appointment == null)
+            {
+                ShowError("Wybierz zaplanowaną wizytę do zamiany.");
+                return;
+            }
+
+            Patient previousPatient = selectedPatient;
+            if (previousPatient == null)
+            {
+                ShowError("Najpierw wybierz pacjenta.");
+                return;
+            }
+
+            using (var dialog = new PatientSwapDialog(dataStore, previousPatient.Id))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                Patient newPatient = dialog.SelectedPatient;
+                if (newPatient == null)
+                {
+                    return;
+                }
+
+                DialogResult result = MessageBox.Show(
+                    "Czy przenieść wizytę z pacjenta "
+                    + previousPatient.DisplayName
+                    + " na pacjenta "
+                    + newPatient.DisplayName
+                    + "?"
+                    + Environment.NewLine
+                    + appointment.StartAt.ToString("dd.MM.yyyy HH:mm"),
+                    "SISMED",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (result != DialogResult.Yes)
+                {
+                    return;
+                }
+
+                try
+                {
+                    dataStore.SwapAppointmentPatient(appointment.Id, newPatient.Id, GetCurrentEmployeeName());
+                    selectedPatient = dataStore.GetPatient(newPatient.Id) ?? newPatient;
+                    FillPatientSearchFields(selectedPatient);
+                    RefreshPatientCard(selectedPatient);
+                    RefreshReservedAppointments();
+                    LoadCalendar();
+                    RefreshReceptionStats();
+                    ShowPatientPlannedPanel();
+                    SetStatus("Wizyta została przeniesiona na pacjenta: " + selectedPatient.DisplayName);
+                    MessageBox.Show(
+                        "Wizyta została przeniesiona na pacjenta " + selectedPatient.DisplayName + ".",
+                        "SISMED",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    ShowError(ex.Message);
+                }
+            }
+        }
+
+        private void btnCancelPatientAppointment_Click(object sender, EventArgs e)
+        {
+            Appointment appointment = GetSelectedPatientPlannedAppointment();
+            if (appointment == null)
+            {
+                ShowError("Wybierz zaplanowaną wizytę.");
+                return;
+            }
+
+            string reason = txtCancelAppointmentReason.Text.Trim();
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                ShowError("Podaj powód anulowania wizyty.");
+                return;
+            }
+
+            bool lateCancellation = appointment.StartAt > DateTime.Now
+                && appointment.StartAt.Subtract(DateTime.Now).TotalHours < 12;
+
+            string message = "Czy anulować wybraną wizytę?"
+                + Environment.NewLine
+                + appointment.StartAt.ToString("dd.MM.yyyy HH:mm")
+                + Environment.NewLine
+                + (lateCancellation
+                    ? "Anulowanie mniej niż 12 godzin przed terminem doda pacjentowi ostrzeżenie."
+                    : "Anulowanie następuje więcej niż 12 godzin przed terminem i nie doda ostrzeżenia.");
+
+            DialogResult result = MessageBox.Show(
+                message,
+                "SISMED",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                dataStore.CancelAppointment(appointment.Id, reason);
+                selectedPatient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+                txtCancelAppointmentReason.Text = string.Empty;
+                RefreshPatientCard(selectedPatient);
+                RefreshReservedAppointments();
+                LoadCalendar();
+                LoadSlots();
+                RefreshReceptionStats();
+                ShowPatientPlannedPanel();
+                SetStatus("Anulowano wizytę pacjenta.");
+                MessageBox.Show("Wizyta została anulowana.", "SISMED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
+        private static string FormatTimeUntilAppointment(DateTime startAt)
+        {
+            TimeSpan left = startAt.Subtract(DateTime.Now);
+            if (left.TotalMinutes <= 0)
+            {
+                return "termin minął";
+            }
+
+            if (left.TotalDays >= 1)
+            {
+                return string.Format(
+                    "{0} dni {1} godz. {2} min",
+                    (int)left.TotalDays,
+                    left.Hours,
+                    left.Minutes);
+            }
+
+            return string.Format("{0} godz. {1} min", (int)left.TotalHours, left.Minutes);
         }
 
         private string GetAppointmentServiceName(Doctor doctor)

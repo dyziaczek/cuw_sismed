@@ -31,6 +31,7 @@ namespace VS_CUWSISMED
         Appointment ReserveAppointment(int doctorId, int patientId, DateTime startAt);
         void CancelAppointment(int appointmentId, string reason);
         void SwapAppointmentPatient(int appointmentId, int newPatientId);
+        void SwapAppointmentPatient(int appointmentId, int newPatientId, string changedByEmployee);
         Employee FindEmployeeByLogin(string login);
         Employee GetEmployee(int employeeId);
         IReadOnlyList<Employee> SearchEmployees(string query);
@@ -590,9 +591,14 @@ namespace VS_CUWSISMED
 
             if (appointment.PatientId.HasValue
                 && appointment.StartAt > DateTime.Now
-                && appointment.StartAt.Subtract(DateTime.Now).TotalHours < 24)
+                && appointment.StartAt.Subtract(DateTime.Now).TotalHours < 12)
             {
-                AddWarning(appointment.PatientId.Value, "Odwołanie wizyty mniej niż 24h przed terminem.");
+                string cancelReason = string.IsNullOrWhiteSpace(reason)
+                    ? "Brak powodu anulowania."
+                    : reason.Trim();
+                AddWarning(
+                    appointment.PatientId.Value,
+                    "Anulowanie wizyty mniej niż 12h przed terminem. Powód: " + cancelReason);
             }
 
             appointment.Status = AppointmentStatus.Cancelled;
@@ -603,14 +609,30 @@ namespace VS_CUWSISMED
 
         public void SwapAppointmentPatient(int appointmentId, int newPatientId)
         {
+            SwapAppointmentPatient(appointmentId, newPatientId, "Pracownik");
+        }
+
+        public void SwapAppointmentPatient(int appointmentId, int newPatientId, string changedByEmployee)
+        {
             Appointment appointment = appointments.FirstOrDefault(a => a.Id == appointmentId);
             if (appointment == null || appointment.Status != AppointmentStatus.Reserved)
             {
                 throw new InvalidOperationException("Nie wybrano aktywnej wizyty do zamiany.");
             }
 
+            if (appointment.PatientId.HasValue && appointment.PatientId.Value == newPatientId)
+            {
+                throw new InvalidOperationException("Nie można zamienić wizyty na tego samego pacjenta.");
+            }
+
+            Patient previousPatient = appointment.PatientId.HasValue
+                ? GetPatient(appointment.PatientId.Value)
+                : null;
+            Patient newPatient = GetPatient(newPatientId);
+
             ValidateReservation(appointment.DoctorId, newPatientId, appointment.StartAt, appointment.Id);
             appointment.PatientId = newPatientId;
+            AppendSwapNote(appointment, previousPatient, newPatient, changedByEmployee);
         }
 
         public Employee FindEmployeeByLogin(string login)
@@ -814,6 +836,24 @@ namespace VS_CUWSISMED
             });
         }
 
+        private static void AppendSwapNote(
+            Appointment appointment,
+            Patient previousPatient,
+            Patient newPatient,
+            string changedByEmployee)
+        {
+            string note = string.Format(
+                "[{0:dd.MM.yyyy HH:mm}] Zamiana pacjenta: {1} -> {2}. Pracownik: {3}.",
+                DateTime.Now,
+                previousPatient == null ? "-" : previousPatient.DisplayName,
+                newPatient == null ? "-" : newPatient.DisplayName,
+                string.IsNullOrWhiteSpace(changedByEmployee) ? "Pracownik" : changedByEmployee.Trim());
+
+            appointment.Notes = string.IsNullOrWhiteSpace(appointment.Notes)
+                ? note
+                : appointment.Notes + Environment.NewLine + note;
+        }
+
         private static int NextId(IEnumerable<int> ids)
         {
             return ids.Any() ? ids.Max() + 1 : 1;
@@ -978,7 +1018,12 @@ namespace VS_CUWSISMED
 
         public void SwapAppointmentPatient(int appointmentId, int newPatientId)
         {
-            memory.SwapAppointmentPatient(appointmentId, newPatientId);
+            SwapAppointmentPatient(appointmentId, newPatientId, "Pracownik");
+        }
+
+        public void SwapAppointmentPatient(int appointmentId, int newPatientId, string changedByEmployee)
+        {
+            memory.SwapAppointmentPatient(appointmentId, newPatientId, changedByEmployee);
             Appointment appointment = GetStoredAppointment(appointmentId);
             if (appointment != null)
             {
