@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -123,7 +124,14 @@ namespace VS_CUWSISMED
 
         private void btnSearch_Click(object sender, EventArgs e)
         {
-            selectedPatient = dataStore.FindPatient(txtSearch.Text);
+            PatientSearchCriteria criteria;
+            if (!TryBuildPatientSearchCriteria(out criteria))
+            {
+                return;
+            }
+
+            IReadOnlyList<Patient> patients = dataStore.SearchPatients(criteria);
+            selectedPatient = patients.FirstOrDefault();
             swapPatient = null;
             lblSwapResult.Text = string.Empty;
             btnSwap.Enabled = false;
@@ -138,7 +146,26 @@ namespace VS_CUWSISMED
 
             RefreshPatientCard(selectedPatient);
             RefreshReservedAppointments();
-            SetStatus("Wybrano pacjenta: " + selectedPatient.DisplayName);
+            SetStatus(patients.Count > 1
+                ? "Znaleziono kilku pacjentow, pokazano pierwszy wynik: " + selectedPatient.DisplayName
+                : "Wybrano pacjenta: " + selectedPatient.DisplayName);
+        }
+
+        private void btnClearPatientSearch_Click(object sender, EventArgs e)
+        {
+            txtPatientPesel.Text = string.Empty;
+            txtPatientFirstName.Text = string.Empty;
+            txtPatientLastName.Text = string.Empty;
+            txtPatientBirthDate.Text = string.Empty;
+            txtPatientPhone.Text = string.Empty;
+            txtPatientEmail.Text = string.Empty;
+            selectedPatient = null;
+            swapPatient = null;
+            lblSwapResult.Text = string.Empty;
+            btnSwap.Enabled = false;
+            RefreshPatientCard(null);
+            RefreshReservedAppointments();
+            SetStatus("Wyczyszczono wyszukiwanie pacjenta.");
         }
 
         private void btnAddPatient_Click(object sender, EventArgs e)
@@ -153,7 +180,7 @@ namespace VS_CUWSISMED
                 try
                 {
                     selectedPatient = dataStore.AddPatient(dialog.Patient);
-                    txtSearch.Text = selectedPatient.Pesel;
+                    FillPatientSearchFields(selectedPatient);
                     RefreshPatientCard(selectedPatient);
                     RefreshReservedAppointments();
                     SetStatus("Dodano pacjenta: " + selectedPatient.DisplayName);
@@ -163,6 +190,78 @@ namespace VS_CUWSISMED
                     ShowError(ex.Message);
                 }
             }
+        }
+
+        private bool TryBuildPatientSearchCriteria(out PatientSearchCriteria criteria)
+        {
+            criteria = null;
+            DateTime? birthDate;
+
+            if (!InputValidation.IsPeselPrefix(txtPatientPesel.Text))
+            {
+                ShowError("PESEL moze zawierac tylko cyfry i maksymalnie 11 znakow.");
+                return false;
+            }
+
+            if (!InputValidation.IsOptionalName(txtPatientFirstName.Text)
+                || !InputValidation.IsOptionalName(txtPatientLastName.Text))
+            {
+                ShowError("Imie i nazwisko moga zawierac tylko litery, spacje i myslnik.");
+                return false;
+            }
+
+            if (!InputValidation.TryParseBirthDate(txtPatientBirthDate.Text, out birthDate))
+            {
+                ShowError("Data urodzenia musi miec format dd.MM.yyyy albo dd-MM-yyyy.");
+                return false;
+            }
+
+            if (!InputValidation.IsPhone(txtPatientPhone.Text))
+            {
+                ShowError("Telefon moze zawierac tylko cyfry i maksymalnie 9 znakow.");
+                return false;
+            }
+
+            if (!InputValidation.IsOptionalEmail(txtPatientEmail.Text))
+            {
+                ShowError("Podaj poprawny adres e-mail.");
+                return false;
+            }
+
+            criteria = new PatientSearchCriteria
+            {
+                Pesel = txtPatientPesel.Text.Trim(),
+                FirstName = txtPatientFirstName.Text.Trim(),
+                LastName = txtPatientLastName.Text.Trim(),
+                BirthDate = birthDate,
+                Phone = txtPatientPhone.Text.Trim(),
+                Email = txtPatientEmail.Text.Trim()
+            };
+
+            if (criteria.IsEmpty)
+            {
+                ShowError("Podaj przynajmniej jedno kryterium wyszukiwania pacjenta.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void FillPatientSearchFields(Patient patient)
+        {
+            if (patient == null)
+            {
+                return;
+            }
+
+            txtPatientPesel.Text = patient.Pesel ?? string.Empty;
+            txtPatientFirstName.Text = patient.FirstName ?? string.Empty;
+            txtPatientLastName.Text = patient.LastName ?? string.Empty;
+            txtPatientBirthDate.Text = patient.BirthDate.HasValue
+                ? patient.BirthDate.Value.ToString("dd.MM.yyyy")
+                : string.Empty;
+            txtPatientPhone.Text = patient.Phone ?? string.Empty;
+            txtPatientEmail.Text = patient.Email ?? string.Empty;
         }
 
         private void btnOpenCalendar_Click(object sender, EventArgs e)
@@ -287,7 +386,7 @@ namespace VS_CUWSISMED
             {
                 dataStore.SwapAppointmentPatient(appointment.Id, swapPatient.Id);
                 selectedPatient = swapPatient;
-                txtSearch.Text = selectedPatient.Pesel;
+                FillPatientSearchFields(selectedPatient);
                 RefreshPatientCard(selectedPatient);
                 RefreshReservedAppointments();
                 LoadCalendar();
@@ -515,8 +614,11 @@ namespace VS_CUWSISMED
             {
                 lblPatientName.Text = "- Brak wybranego pacjenta -";
                 lblPatientPesel.Text = "PESEL: -";
+                lblPatientBirthDate.Text = "Data ur.: -";
                 lblPatientPhone.Text = "Tel: -";
+                lblPatientEmail.Text = "E-mail: -";
                 lblPatientWarnings.Text = "Ostrzezenia: 0/3";
+                lblPatientNotes.Text = "Notatka: -";
                 lblPatientStatus.Text = string.Empty;
                 return;
             }
@@ -526,8 +628,15 @@ namespace VS_CUWSISMED
 
             lblPatientName.Text = current.DisplayName;
             lblPatientPesel.Text = "PESEL: " + current.Pesel;
+            lblPatientBirthDate.Text = "Data ur.: "
+                + (current.BirthDate.HasValue ? current.BirthDate.Value.ToString("dd.MM.yyyy") : "-");
             lblPatientPhone.Text = "Tel: " + (string.IsNullOrWhiteSpace(current.Phone) ? "-" : current.Phone);
-            lblPatientWarnings.Text = "Ostrzezenia: " + current.WarningCount + "/3";
+            lblPatientEmail.Text = "E-mail: " + (string.IsNullOrWhiteSpace(current.Email) ? "-" : current.Email);
+
+            IReadOnlyList<PatientWarning> warnings = dataStore.GetPatientWarnings(current.Id);
+            IReadOnlyList<PatientNote> notes = dataStore.GetPatientNotes(current.Id);
+            lblPatientWarnings.Text = "Ostrzezenia: " + Math.Max(current.WarningCount, warnings.Count) + "/3";
+            lblPatientNotes.Text = "Notatka: " + (notes.Count > 0 ? Truncate(notes[0].Text, 44) : "-");
             lblPatientStatus.Text = current.IsBlocked
                 ? "Blokada do " + current.BlockedUntil.Value.ToString("dd.MM.yyyy")
                 : string.Empty;
@@ -609,6 +718,17 @@ namespace VS_CUWSISMED
         private static string Safe(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+        }
+
+        private static string Truncate(string value, int maxLength)
+        {
+            value = value ?? string.Empty;
+            if (value.Length <= maxLength)
+            {
+                return value;
+            }
+
+            return value.Substring(0, maxLength - 3) + "...";
         }
 
         private static void ShowError(string message)

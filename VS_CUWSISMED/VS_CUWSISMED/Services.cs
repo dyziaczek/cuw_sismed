@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
-using System.Data;
-using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -14,12 +13,16 @@ namespace VS_CUWSISMED
     public interface IClinicDataStore
     {
         IReadOnlyList<Doctor> GetDoctors();
+        IReadOnlyList<MedicalService> GetServices();
         IReadOnlyList<AvailableSlot> GetAvailableSlots(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForDoctor(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId);
+        IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria);
         Patient FindPatient(string query);
         Patient AddPatient(Patient patient);
         Patient GetPatient(int patientId);
+        IReadOnlyList<PatientNote> GetPatientNotes(int patientId);
+        IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId);
         Doctor GetDoctor(int doctorId);
         Appointment ReserveAppointment(int doctorId, int patientId, DateTime startAt);
         void CancelAppointment(int appointmentId, string reason);
@@ -56,30 +59,17 @@ namespace VS_CUWSISMED
     {
         public static IClinicDataStore Create()
         {
-            string mode = (ConfigurationManager.AppSettings["SismedStorageMode"] ?? "Memory").Trim();
+            string mode = (ConfigurationManager.AppSettings["SismedStorageMode"] ?? "SQLite").Trim();
 
-            if (mode.Equals("SQLite", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    string dbPath = ResolveDatabasePath(
-                        ConfigurationManager.AppSettings["SismedDatabasePath"]);
-                    AppServices.StorageInfo = "SQLite: " + dbPath;
-                    return new SqliteClinicDataStore(dbPath);
-                }
-                catch (Exception ex)
-                {
-                    AppServices.StorageInfo =
-                        "SQLite niedostepne (" + ex.Message + "), uzyto danych pamieciowych.";
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(AppServices.StorageInfo))
+            if (mode.Equals("Memory", StringComparison.OrdinalIgnoreCase))
             {
                 AppServices.StorageInfo = "Dane pamieciowe";
+                return new InMemoryClinicDataStore(SampleData.Create());
             }
 
-            return new InMemoryClinicDataStore(SampleData.Create());
+            string dbPath = ResolveDatabasePath(ConfigurationManager.AppSettings["SismedDatabasePath"]);
+            AppServices.StorageInfo = "SQLite: " + dbPath;
+            return new PersistentSqliteClinicDataStore(dbPath);
         }
 
         private static string ResolveDatabasePath(string configuredPath)
@@ -319,28 +309,43 @@ namespace VS_CUWSISMED
     {
         private readonly List<Patient> patients;
         private readonly List<Doctor> doctors;
+        private readonly List<MedicalService> services;
         private readonly List<ScheduleEntry> schedules;
         private readonly List<Appointment> appointments;
         private readonly List<Employee> employees;
+        private readonly List<PatientNote> patientNotes;
+        private readonly List<PatientWarning> patientWarnings;
         private int nextPatientId;
         private int nextAppointmentId;
         private int nextEmployeeId;
+        private int nextNoteId;
+        private int nextWarningId;
 
         public InMemoryClinicDataStore(ClinicSeedData seed)
         {
             patients = seed.Patients;
             doctors = seed.Doctors;
+            services = seed.Services;
             schedules = seed.Schedules;
             appointments = seed.Appointments;
             employees = seed.Employees;
+            patientNotes = seed.PatientNotes;
+            patientWarnings = seed.PatientWarnings;
             nextPatientId = NextId(patients.Select(p => p.Id));
             nextAppointmentId = NextId(appointments.Select(a => a.Id));
             nextEmployeeId = NextId(employees.Select(e => e.Id));
+            nextNoteId = NextId(patientNotes.Select(n => n.Id));
+            nextWarningId = NextId(patientWarnings.Select(w => w.Id));
         }
 
         public IReadOnlyList<Doctor> GetDoctors()
         {
             return doctors.OrderBy(d => d.LastName).ThenBy(d => d.FirstName).ToList();
+        }
+
+        public IReadOnlyList<MedicalService> GetServices()
+        {
+            return services.Where(s => s.IsActive).OrderBy(s => s.Name).ToList();
         }
 
         public IReadOnlyList<AvailableSlot> GetAvailableSlots(int doctorId, DateTime date)
@@ -388,6 +393,53 @@ namespace VS_CUWSISMED
                 .ToList();
         }
 
+        public IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria)
+        {
+            if (criteria == null || criteria.IsEmpty)
+            {
+                return new List<Patient>();
+            }
+
+            IEnumerable<Patient> result = patients;
+            string pesel = Normalize(criteria.Pesel);
+            string firstName = Normalize(criteria.FirstName);
+            string lastName = Normalize(criteria.LastName);
+            string phone = Normalize(criteria.Phone);
+            string email = Normalize(criteria.Email);
+
+            if (!string.IsNullOrEmpty(pesel))
+            {
+                result = result.Where(p => Normalize(p.Pesel).Contains(pesel));
+            }
+
+            if (!string.IsNullOrEmpty(firstName))
+            {
+                result = result.Where(p => Normalize(p.FirstName).Contains(firstName));
+            }
+
+            if (!string.IsNullOrEmpty(lastName))
+            {
+                result = result.Where(p => Normalize(p.LastName).Contains(lastName));
+            }
+
+            if (criteria.BirthDate.HasValue)
+            {
+                result = result.Where(p => p.BirthDate.HasValue && p.BirthDate.Value.Date == criteria.BirthDate.Value.Date);
+            }
+
+            if (!string.IsNullOrEmpty(phone))
+            {
+                result = result.Where(p => Normalize(p.Phone).Contains(phone));
+            }
+
+            if (!string.IsNullOrEmpty(email))
+            {
+                result = result.Where(p => Normalize(p.Email).Contains(email));
+            }
+
+            return result.OrderBy(p => p.LastName).ThenBy(p => p.FirstName).ToList();
+        }
+
         public Patient FindPatient(string query)
         {
             string normalized = Normalize(query);
@@ -416,14 +468,42 @@ namespace VS_CUWSISMED
                 throw new InvalidOperationException("Pacjent o podanym numerze PESEL juz istnieje.");
             }
 
-            patient.Id = nextPatientId++;
+            patient.Id = patient.Id > 0 ? patient.Id : nextPatientId++;
             patients.Add(patient);
+
+            if (!string.IsNullOrWhiteSpace(patient.Notes))
+            {
+                patientNotes.Add(new PatientNote
+                {
+                    Id = nextNoteId++,
+                    PatientId = patient.Id,
+                    CreatedAt = DateTime.Now,
+                    Text = patient.Notes
+                });
+            }
+
             return patient;
         }
 
         public Patient GetPatient(int patientId)
         {
             return patients.FirstOrDefault(p => p.Id == patientId);
+        }
+
+        public IReadOnlyList<PatientNote> GetPatientNotes(int patientId)
+        {
+            return patientNotes
+                .Where(n => n.PatientId == patientId)
+                .OrderByDescending(n => n.CreatedAt)
+                .ToList();
+        }
+
+        public IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId)
+        {
+            return patientWarnings
+                .Where(w => w.PatientId == patientId)
+                .OrderByDescending(w => w.CreatedAt)
+                .ToList();
         }
 
         public Doctor GetDoctor(int doctorId)
@@ -459,7 +539,7 @@ namespace VS_CUWSISMED
                 && appointment.StartAt > DateTime.Now
                 && appointment.StartAt.Subtract(DateTime.Now).TotalHours < 24)
             {
-                AddWarning(appointment.PatientId.Value);
+                AddWarning(appointment.PatientId.Value, "Odwołanie wizyty mniej niż 24h przed terminem.");
             }
 
             appointment.Status = AppointmentStatus.Cancelled;
@@ -491,6 +571,11 @@ namespace VS_CUWSISMED
             return employees.FirstOrDefault(e => e.Id == employeeId);
         }
 
+        public Appointment GetAppointment(int appointmentId)
+        {
+            return appointments.FirstOrDefault(a => a.Id == appointmentId);
+        }
+
         public IReadOnlyList<Employee> SearchEmployees(string query)
         {
             string normalized = Normalize(query);
@@ -504,13 +589,10 @@ namespace VS_CUWSISMED
                     || Normalize(e.FullName).Contains(normalized)
                     || Normalize(e.Pesel).Contains(normalized)
                     || Normalize(e.Login).Contains(normalized)
-                    || Normalize(FormatBirthDate(e.BirthDate)).Contains(normalized));
+                    || Normalize(FormatDate(e.BirthDate)).Contains(normalized));
             }
 
-            return result
-                .OrderBy(e => e.LastName)
-                .ThenBy(e => e.FirstName)
-                .ToList();
+            return result.OrderBy(e => e.LastName).ThenBy(e => e.FirstName).ToList();
         }
 
         public Employee AddEmployee(Employee employee)
@@ -531,7 +613,7 @@ namespace VS_CUWSISMED
                 throw new InvalidOperationException("Pracownik o podanym numerze PESEL juz istnieje.");
             }
 
-            employee.Id = nextEmployeeId++;
+            employee.Id = employee.Id > 0 ? employee.Id : nextEmployeeId++;
             employee.DisplayName = employee.FullName;
             employee.Role = EmployeeRoles.Normalize(employee.Role);
             employees.Add(employee);
@@ -656,7 +738,7 @@ namespace VS_CUWSISMED
             }
         }
 
-        private void AddWarning(int patientId)
+        private void AddWarning(int patientId, string reason)
         {
             Patient patient = GetPatient(patientId);
             if (patient == null)
@@ -669,6 +751,14 @@ namespace VS_CUWSISMED
             {
                 patient.BlockedUntil = DateTime.Today.AddDays(30);
             }
+
+            patientWarnings.Add(new PatientWarning
+            {
+                Id = nextWarningId++,
+                PatientId = patientId,
+                CreatedAt = DateTime.Now,
+                Reason = reason
+            });
         }
 
         private static int NextId(IEnumerable<int> ids)
@@ -681,864 +771,533 @@ namespace VS_CUWSISMED
             return (value ?? string.Empty).Trim().ToLowerInvariant();
         }
 
-        private static string FormatBirthDate(DateTime? date)
+        private static string FormatDate(DateTime? date)
         {
             return date.HasValue ? date.Value.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : string.Empty;
         }
     }
 
-    internal sealed class SqliteClinicDataStore : IClinicDataStore
+    internal sealed class PersistentSqliteClinicDataStore : IClinicDataStore
     {
-        private readonly DbProviderFactory factory;
-        private readonly string connectionString;
+        private readonly NativeSqliteDatabase database;
+        private readonly InMemoryClinicDataStore memory;
 
-        public SqliteClinicDataStore(string databasePath)
+        public PersistentSqliteClinicDataStore(string databasePath)
         {
-            factory = LoadFactory();
-            connectionString = "Data Source=" + databasePath + ";Version=3;";
+            database = new NativeSqliteDatabase(databasePath);
             EnsureSchema();
             SeedIfEmpty();
+            memory = new InMemoryClinicDataStore(LoadData());
         }
 
         public IReadOnlyList<Doctor> GetDoctors()
         {
-            var doctors = new List<Doctor>();
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT id, first_name, last_name, specialization FROM doctors ORDER BY last_name, first_name";
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        doctors.Add(ReadDoctor(reader));
-                    }
-                }
-            }
+            return memory.GetDoctors();
+        }
 
-            return doctors;
+        public IReadOnlyList<MedicalService> GetServices()
+        {
+            return memory.GetServices();
         }
 
         public IReadOnlyList<AvailableSlot> GetAvailableSlots(int doctorId, DateTime date)
         {
-            Doctor doctor = GetDoctor(doctorId);
-            if (doctor == null)
-            {
-                return new List<AvailableSlot>();
-            }
-
-            return GetAppointmentsForDoctor(doctorId, date)
-                .Where(a => a.Status == AppointmentStatus.Free && a.StartAt >= DateTime.Now)
-                .Select(a => new AvailableSlot { Doctor = doctor, StartAt = a.StartAt })
-                .ToList();
+            return memory.GetAvailableSlots(doctorId, date);
         }
 
         public IReadOnlyList<Appointment> GetAppointmentsForDoctor(int doctorId, DateTime date)
         {
-            var booked = LoadAppointments(
-                "doctor_id = @doctor_id AND substr(start_at, 1, 10) = @day AND status = @status",
-                command =>
-                {
-                    AddParameter(command, "@doctor_id", doctorId);
-                    AddParameter(command, "@day", date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-                    AddParameter(command, "@status", AppointmentStatus.Reserved.ToString());
-                });
-
-            var result = new List<Appointment>();
-            foreach (DateTime slot in GenerateSlots(doctorId, date.Date))
-            {
-                Appointment appointment = booked.FirstOrDefault(a => a.StartAt == slot);
-                result.Add(appointment ?? new Appointment
-                {
-                    DoctorId = doctorId,
-                    StartAt = slot,
-                    Status = AppointmentStatus.Free
-                });
-            }
-
-            return result;
+            return memory.GetAppointmentsForDoctor(doctorId, date);
         }
 
         public IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId)
         {
-            return LoadAppointments(
-                "patient_id = @patient_id AND status = @status",
-                command =>
-                {
-                    AddParameter(command, "@patient_id", patientId);
-                    AddParameter(command, "@status", AppointmentStatus.Reserved.ToString());
-                })
-                .OrderBy(a => a.StartAt)
-                .ToList();
+            return memory.GetAppointmentsForPatient(patientId);
+        }
+
+        public IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria)
+        {
+            return memory.SearchPatients(criteria);
         }
 
         public Patient FindPatient(string query)
         {
-            string normalized = (query ?? string.Empty).Trim().ToLowerInvariant();
-            if (normalized.Length == 0)
-            {
-                return null;
-            }
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "SELECT id, first_name, last_name, pesel, phone, email, address, warning_count, blocked_until " +
-                    "FROM patients " +
-                    "WHERE lower(pesel) LIKE @q OR lower(phone) LIKE @q OR lower(email) LIKE @q " +
-                    "OR lower(first_name || ' ' || last_name) LIKE @q " +
-                    "ORDER BY last_name, first_name LIMIT 1";
-                AddParameter(command, "@q", "%" + normalized + "%");
-
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    return reader.Read() ? ReadPatient(reader) : null;
-                }
-            }
+            return memory.FindPatient(query);
         }
 
         public Patient AddPatient(Patient patient)
         {
-            if (patient == null)
+            Patient saved = memory.AddPatient(patient);
+            InsertPatient(saved);
+
+            if (!string.IsNullOrWhiteSpace(saved.Notes))
             {
-                throw new ArgumentNullException("patient");
+                PatientNote note = memory.GetPatientNotes(saved.Id).FirstOrDefault();
+                if (note != null)
+                {
+                    InsertPatientNote(note);
+                }
             }
 
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "INSERT INTO patients(first_name, last_name, pesel, phone, email, address, warning_count, blocked_until) " +
-                    "VALUES(@first_name, @last_name, @pesel, @phone, @email, @address, @warning_count, @blocked_until); " +
-                    "SELECT last_insert_rowid();";
-                AddPatientParameters(command, patient);
-                patient.Id = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
-            }
-
-            return patient;
+            return saved;
         }
 
         public Patient GetPatient(int patientId)
         {
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "SELECT id, first_name, last_name, pesel, phone, email, address, warning_count, blocked_until " +
-                    "FROM patients WHERE id = @id";
-                AddParameter(command, "@id", patientId);
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    return reader.Read() ? ReadPatient(reader) : null;
-                }
-            }
+            return memory.GetPatient(patientId);
+        }
+
+        public IReadOnlyList<PatientNote> GetPatientNotes(int patientId)
+        {
+            return memory.GetPatientNotes(patientId);
+        }
+
+        public IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId)
+        {
+            return memory.GetPatientWarnings(patientId);
         }
 
         public Doctor GetDoctor(int doctorId)
         {
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = "SELECT id, first_name, last_name, specialization FROM doctors WHERE id = @id";
-                AddParameter(command, "@id", doctorId);
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    return reader.Read() ? ReadDoctor(reader) : null;
-                }
-            }
+            return memory.GetDoctor(doctorId);
         }
 
         public Appointment ReserveAppointment(int doctorId, int patientId, DateTime startAt)
         {
-            ValidateReservation(doctorId, patientId, startAt, 0);
-
-            var appointment = new Appointment
-            {
-                DoctorId = doctorId,
-                PatientId = patientId,
-                StartAt = startAt,
-                Status = AppointmentStatus.Reserved
-            };
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "INSERT INTO appointments(doctor_id, patient_id, start_at, status, cancel_reason, notes) " +
-                    "VALUES(@doctor_id, @patient_id, @start_at, @status, @cancel_reason, @notes); " +
-                    "SELECT last_insert_rowid();";
-                AddAppointmentParameters(command, appointment);
-                appointment.Id = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
-            }
-
+            Appointment appointment = memory.ReserveAppointment(doctorId, patientId, startAt);
+            InsertAppointment(appointment);
             return appointment;
         }
 
         public void CancelAppointment(int appointmentId, string reason)
         {
-            Appointment appointment = GetAppointment(appointmentId);
-            if (appointment == null || appointment.Status != AppointmentStatus.Reserved)
+            Appointment appointment = GetStoredAppointment(appointmentId);
+            int patientId = appointment != null && appointment.PatientId.HasValue ? appointment.PatientId.Value : 0;
+            int warningCountBefore = patientId > 0 ? memory.GetPatientWarnings(patientId).Count : 0;
+
+            memory.CancelAppointment(appointmentId, reason);
+
+            Appointment updated = GetStoredAppointment(appointmentId);
+            if (updated != null)
             {
-                return;
+                UpdateAppointment(updated);
             }
 
-            if (appointment.PatientId.HasValue
-                && appointment.StartAt > DateTime.Now
-                && appointment.StartAt.Subtract(DateTime.Now).TotalHours < 24)
+            if (patientId > 0)
             {
-                AddWarning(appointment.PatientId.Value);
-            }
+                Patient patient = memory.GetPatient(patientId);
+                UpdatePatient(patient);
 
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "UPDATE appointments SET status = @status, cancel_reason = @reason WHERE id = @id";
-                AddParameter(command, "@status", AppointmentStatus.Cancelled.ToString());
-                AddParameter(command, "@reason", string.IsNullOrWhiteSpace(reason)
-                    ? "Anulowano przez pracownika"
-                    : reason.Trim());
-                AddParameter(command, "@id", appointmentId);
-                command.ExecuteNonQuery();
+                PatientWarning warning = memory.GetPatientWarnings(patientId)
+                    .OrderByDescending(w => w.CreatedAt)
+                    .FirstOrDefault();
+                if (warning != null && memory.GetPatientWarnings(patientId).Count > warningCountBefore)
+                {
+                    InsertPatientWarning(warning);
+                }
             }
         }
 
         public void SwapAppointmentPatient(int appointmentId, int newPatientId)
         {
-            Appointment appointment = GetAppointment(appointmentId);
-            if (appointment == null || appointment.Status != AppointmentStatus.Reserved)
+            memory.SwapAppointmentPatient(appointmentId, newPatientId);
+            Appointment appointment = GetStoredAppointment(appointmentId);
+            if (appointment != null)
             {
-                throw new InvalidOperationException("Nie wybrano aktywnej wizyty do zamiany.");
-            }
-
-            ValidateReservation(appointment.DoctorId, newPatientId, appointment.StartAt, appointment.Id);
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = "UPDATE appointments SET patient_id = @patient_id WHERE id = @id";
-                AddParameter(command, "@patient_id", newPatientId);
-                AddParameter(command, "@id", appointmentId);
-                command.ExecuteNonQuery();
+                UpdateAppointment(appointment);
             }
         }
 
         public Employee FindEmployeeByLogin(string login)
         {
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = EmployeeSelectSql + " WHERE lower(login) = @login";
-                AddParameter(command, "@login", (login ?? string.Empty).Trim().ToLowerInvariant());
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    return reader.Read() ? ReadEmployee(reader) : null;
-                }
-            }
+            return memory.FindEmployeeByLogin(login);
         }
 
         public Employee GetEmployee(int employeeId)
         {
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = EmployeeSelectSql + " WHERE id = @id";
-                AddParameter(command, "@id", employeeId);
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    return reader.Read() ? ReadEmployee(reader) : null;
-                }
-            }
+            return memory.GetEmployee(employeeId);
         }
 
         public IReadOnlyList<Employee> SearchEmployees(string query)
         {
-            string normalized = (query ?? string.Empty).Trim().ToLowerInvariant();
-            var employees = new List<Employee>();
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = EmployeeSelectSql;
-                if (normalized.Length > 0)
-                {
-                    command.CommandText +=
-                        " WHERE lower(first_name) LIKE @q OR lower(last_name) LIKE @q " +
-                        "OR lower(first_name || ' ' || last_name) LIKE @q OR lower(pesel) LIKE @q " +
-                        "OR lower(login) LIKE @q OR lower(birth_date) LIKE @q";
-                    AddParameter(command, "@q", "%" + normalized + "%");
-                }
-
-                command.CommandText += " ORDER BY last_name, first_name";
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        employees.Add(ReadEmployee(reader));
-                    }
-                }
-            }
-
-            return employees;
+            return memory.SearchEmployees(query);
         }
 
         public Employee AddEmployee(Employee employee)
         {
-            if (employee == null)
-            {
-                throw new ArgumentNullException("employee");
-            }
-
-            employee.Role = EmployeeRoles.Normalize(employee.Role);
-            employee.DisplayName = employee.FullName;
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "INSERT INTO employees(login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization) " +
-                    "VALUES(@login, @first_name, @last_name, @pesel, @birth_date, @display_name, @role, @password_hash, @password_salt, @created_at, @is_active, @is_doctor, @specialization); " +
-                    "SELECT last_insert_rowid();";
-                AddEmployeeParameters(command, employee);
-                employee.Id = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
-            }
-
-            return employee;
+            Employee saved = memory.AddEmployee(employee);
+            InsertEmployee(saved);
+            return saved;
         }
 
         public void DeactivateEmployee(int employeeId)
         {
-            Employee employee = GetEmployee(employeeId);
-            if (employee == null)
-            {
-                throw new InvalidOperationException("Nie znaleziono pracownika.");
-            }
-
-            if (!employee.IsActive)
-            {
-                return;
-            }
-
-            if (employee.IsAdministrator && CountActiveAdministrators() <= 1)
-            {
-                throw new InvalidOperationException("Nie mozna dezaktywowac ostatniego aktywnego administratora.");
-            }
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = "UPDATE employees SET is_active = 0 WHERE id = @id";
-                AddParameter(command, "@id", employeeId);
-                command.ExecuteNonQuery();
-            }
+            memory.DeactivateEmployee(employeeId);
+            Employee employee = memory.GetEmployee(employeeId);
+            database.ExecuteNonQuery(
+                "UPDATE employees SET is_active = ? WHERE id = ?",
+                SqlValue.Bool(employee.IsActive),
+                SqlValue.Int(employee.Id));
         }
 
-        private void ValidateReservation(int doctorId, int patientId, DateTime startAt, int ignoredAppointmentId)
+        private Appointment GetStoredAppointment(int appointmentId)
         {
-            Doctor doctor = GetDoctor(doctorId);
-            Patient patient = GetPatient(patientId);
-
-            if (doctor == null)
-            {
-                throw new InvalidOperationException("Nie znaleziono lekarza.");
-            }
-
-            if (patient == null)
-            {
-                throw new InvalidOperationException("Nie znaleziono pacjenta.");
-            }
-
-            if (patient.IsBlocked)
-            {
-                throw new InvalidOperationException(
-                    "Pacjent ma aktywna blokade wizyt do "
-                    + patient.BlockedUntil.Value.ToString("dd.MM.yyyy") + ".");
-            }
-
-            if (!IsDoctorWorking(doctorId, startAt))
-            {
-                throw new InvalidOperationException("Lekarz nie pracuje w wybranym terminie.");
-            }
-
-            if (IsSlotTaken(doctorId, startAt, ignoredAppointmentId))
-            {
-                throw new InvalidOperationException("Wybrany termin jest juz zajety.");
-            }
-
-            if (HasPatientConflict(patientId, doctor.Specialization, startAt, ignoredAppointmentId))
-            {
-                throw new InvalidOperationException(
-                    "Pacjent ma juz wizyte w tym terminie lub u tej specjalizacji tego dnia.");
-            }
-        }
-
-        private bool IsDoctorWorking(int doctorId, DateTime startAt)
-        {
-            return LoadSchedules(doctorId).Any(s => s.DayOfWeek == startAt.DayOfWeek
-                && startAt.TimeOfDay >= s.StartTime
-                && startAt.TimeOfDay < s.EndTime);
-        }
-
-        private bool IsSlotTaken(int doctorId, DateTime startAt, int ignoredAppointmentId)
-        {
-            return LoadAppointments(
-                "doctor_id = @doctor_id AND start_at = @start_at AND status = @status AND id <> @ignored_id",
-                command =>
-                {
-                    AddParameter(command, "@doctor_id", doctorId);
-                    AddParameter(command, "@start_at", ToDbDate(startAt));
-                    AddParameter(command, "@status", AppointmentStatus.Reserved.ToString());
-                    AddParameter(command, "@ignored_id", ignoredAppointmentId);
-                })
-                .Any();
-        }
-
-        private bool HasPatientConflict(
-            int patientId,
-            string specialization,
-            DateTime startAt,
-            int ignoredAppointmentId)
-        {
-            var patientAppointments = LoadAppointments(
-                "patient_id = @patient_id AND substr(start_at, 1, 10) = @day AND status = @status AND id <> @ignored_id",
-                command =>
-                {
-                    AddParameter(command, "@patient_id", patientId);
-                    AddParameter(command, "@day", startAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-                    AddParameter(command, "@status", AppointmentStatus.Reserved.ToString());
-                    AddParameter(command, "@ignored_id", ignoredAppointmentId);
-                });
-
-            foreach (Appointment appointment in patientAppointments)
-            {
-                if (appointment.StartAt == startAt)
-                {
-                    return true;
-                }
-
-                Doctor doctor = GetDoctor(appointment.DoctorId);
-                if (doctor != null
-                    && string.Equals(doctor.Specialization, specialization, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private IEnumerable<DateTime> GenerateSlots(int doctorId, DateTime date)
-        {
-            foreach (ScheduleEntry schedule in LoadSchedules(doctorId).Where(s => s.DayOfWeek == date.DayOfWeek))
-            {
-                DateTime current = date.Add(schedule.StartTime);
-                DateTime end = date.Add(schedule.EndTime);
-                while (current < end)
-                {
-                    yield return current;
-                    current = current.AddMinutes(15);
-                }
-            }
-        }
-
-        private Appointment GetAppointment(int appointmentId)
-        {
-            return LoadAppointments(
-                "id = @id",
-                command => AddParameter(command, "@id", appointmentId))
-                .FirstOrDefault();
-        }
-
-        private List<Appointment> LoadAppointments(string whereClause, Action<DbCommand> configure)
-        {
-            var appointments = new List<Appointment>();
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "SELECT id, doctor_id, patient_id, start_at, status, cancel_reason, notes FROM appointments WHERE "
-                    + whereClause;
-                configure(command);
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        appointments.Add(ReadAppointment(reader));
-                    }
-                }
-            }
-
-            return appointments;
-        }
-
-        private List<ScheduleEntry> LoadSchedules(int doctorId)
-        {
-            var schedules = new List<ScheduleEntry>();
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "SELECT id, doctor_id, day_of_week, start_time, end_time FROM schedules WHERE doctor_id = @doctor_id";
-                AddParameter(command, "@doctor_id", doctorId);
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        schedules.Add(new ScheduleEntry
-                        {
-                            Id = Convert.ToInt32(reader["id"], CultureInfo.InvariantCulture),
-                            DoctorId = Convert.ToInt32(reader["doctor_id"], CultureInfo.InvariantCulture),
-                            DayOfWeek = (DayOfWeek)Convert.ToInt32(reader["day_of_week"], CultureInfo.InvariantCulture),
-                            StartTime = TimeSpan.Parse(Convert.ToString(reader["start_time"], CultureInfo.InvariantCulture), CultureInfo.InvariantCulture),
-                            EndTime = TimeSpan.Parse(Convert.ToString(reader["end_time"], CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
-                        });
-                    }
-                }
-            }
-
-            return schedules;
-        }
-
-        private void AddWarning(int patientId)
-        {
-            Patient patient = GetPatient(patientId);
-            if (patient == null)
-            {
-                return;
-            }
-
-            patient.WarningCount++;
-            if (patient.WarningCount >= 3)
-            {
-                patient.BlockedUntil = DateTime.Today.AddDays(30);
-            }
-
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText =
-                    "UPDATE patients SET warning_count = @warning_count, blocked_until = @blocked_until WHERE id = @id";
-                AddParameter(command, "@warning_count", patient.WarningCount);
-                AddParameter(command, "@blocked_until", patient.BlockedUntil.HasValue
-                    ? ToDbDate(patient.BlockedUntil.Value)
-                    : null);
-                AddParameter(command, "@id", patient.Id);
-                command.ExecuteNonQuery();
-            }
+            return memory.GetAppointment(appointmentId);
         }
 
         private void EnsureSchema()
         {
-            ExecuteNonQuery(
+            database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS patients (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "first_name TEXT NOT NULL, last_name TEXT NOT NULL, pesel TEXT UNIQUE, " +
-                "phone TEXT, email TEXT, address TEXT, warning_count INTEGER NOT NULL DEFAULT 0, blocked_until TEXT);" );
-            ExecuteNonQuery(
+                "id INTEGER PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, pesel TEXT UNIQUE, " +
+                "birth_date TEXT, phone TEXT, email TEXT, address TEXT, notes TEXT, " +
+                "warning_count INTEGER NOT NULL DEFAULT 0, blocked_until TEXT)");
+            database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS doctors (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                "first_name TEXT NOT NULL, last_name TEXT NOT NULL, specialization TEXT NOT NULL);" );
-            ExecuteNonQuery(
-                "CREATE TABLE IF NOT EXISTS appointments (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id INTEGER NOT NULL, patient_id INTEGER, " +
-                "start_at TEXT NOT NULL, status TEXT NOT NULL, cancel_reason TEXT, notes TEXT, " +
-                "FOREIGN KEY(doctor_id) REFERENCES doctors(id), FOREIGN KEY(patient_id) REFERENCES patients(id));" );
-            ExecuteNonQuery(
+                "id INTEGER PRIMARY KEY, first_name TEXT NOT NULL, last_name TEXT NOT NULL, specialization TEXT NOT NULL)");
+            database.ExecuteNonQuery(
+                "CREATE TABLE IF NOT EXISTS services (" +
+                "id INTEGER PRIMARY KEY, name TEXT NOT NULL, specialization TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)");
+            database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS schedules (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id INTEGER NOT NULL, day_of_week INTEGER NOT NULL, " +
-                "start_time TEXT NOT NULL, end_time TEXT NOT NULL, FOREIGN KEY(doctor_id) REFERENCES doctors(id));" );
-            ExecuteNonQuery(
+                "id INTEGER PRIMARY KEY, doctor_id INTEGER NOT NULL, day_of_week INTEGER NOT NULL, " +
+                "start_time TEXT NOT NULL, end_time TEXT NOT NULL)");
+            database.ExecuteNonQuery(
+                "CREATE TABLE IF NOT EXISTS appointments (" +
+                "id INTEGER PRIMARY KEY, doctor_id INTEGER NOT NULL, patient_id INTEGER, start_at TEXT NOT NULL, " +
+                "status TEXT NOT NULL, cancel_reason TEXT, notes TEXT)");
+            database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS employees (" +
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT NOT NULL UNIQUE, " +
-                "first_name TEXT, last_name TEXT, pesel TEXT, birth_date TEXT, display_name TEXT NOT NULL, " +
-                "role TEXT NOT NULL, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, " +
-                "created_at TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 1, " +
-                "is_doctor INTEGER NOT NULL DEFAULT 0, specialization TEXT);" );
+                "id INTEGER PRIMARY KEY, login TEXT NOT NULL UNIQUE, first_name TEXT, last_name TEXT, pesel TEXT, " +
+                "birth_date TEXT, display_name TEXT NOT NULL, role TEXT NOT NULL, password_hash TEXT NOT NULL, " +
+                "password_salt TEXT NOT NULL, created_at TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 1, " +
+                "is_doctor INTEGER NOT NULL DEFAULT 0, specialization TEXT)");
+            database.ExecuteNonQuery(
+                "CREATE TABLE IF NOT EXISTS patient_notes (" +
+                "id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, created_at TEXT NOT NULL, note_text TEXT NOT NULL)");
+            database.ExecuteNonQuery(
+                "CREATE TABLE IF NOT EXISTS patient_warnings (" +
+                "id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, created_at TEXT NOT NULL, reason TEXT NOT NULL)");
 
+            EnsureColumn("patients", "birth_date", "TEXT");
+            EnsureColumn("patients", "notes", "TEXT");
             EnsureColumn("employees", "first_name", "TEXT");
             EnsureColumn("employees", "last_name", "TEXT");
             EnsureColumn("employees", "pesel", "TEXT");
             EnsureColumn("employees", "birth_date", "TEXT");
             EnsureColumn("employees", "is_doctor", "INTEGER NOT NULL DEFAULT 0");
             EnsureColumn("employees", "specialization", "TEXT");
-            ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_employees_search ON employees(first_name, last_name, pesel, birth_date, login)");
-        }
 
-        private void SeedIfEmpty()
-        {
-            ClinicSeedData seed = SampleData.Create();
-
-            if (Convert.ToInt32(ExecuteScalar("SELECT COUNT(*) FROM doctors"), CultureInfo.InvariantCulture) == 0)
-            {
-                foreach (Doctor doctor in seed.Doctors)
-                {
-                    ExecuteNonQuery(
-                        "INSERT INTO doctors(id, first_name, last_name, specialization) VALUES(@id, @first_name, @last_name, @specialization)",
-                        command =>
-                        {
-                            AddParameter(command, "@id", doctor.Id);
-                            AddParameter(command, "@first_name", doctor.FirstName);
-                            AddParameter(command, "@last_name", doctor.LastName);
-                            AddParameter(command, "@specialization", doctor.Specialization);
-                        });
-                }
-            }
-
-            if (Convert.ToInt32(ExecuteScalar("SELECT COUNT(*) FROM schedules"), CultureInfo.InvariantCulture) == 0)
-            {
-                foreach (ScheduleEntry schedule in seed.Schedules)
-                {
-                    ExecuteNonQuery(
-                        "INSERT INTO schedules(id, doctor_id, day_of_week, start_time, end_time) VALUES(@id, @doctor_id, @day_of_week, @start_time, @end_time)",
-                        command =>
-                        {
-                            AddParameter(command, "@id", schedule.Id);
-                            AddParameter(command, "@doctor_id", schedule.DoctorId);
-                            AddParameter(command, "@day_of_week", (int)schedule.DayOfWeek);
-                            AddParameter(command, "@start_time", schedule.StartTime.ToString());
-                            AddParameter(command, "@end_time", schedule.EndTime.ToString());
-                        });
-                }
-            }
-
-            if (Convert.ToInt32(ExecuteScalar("SELECT COUNT(*) FROM patients"), CultureInfo.InvariantCulture) == 0)
-            {
-                foreach (Patient patient in seed.Patients)
-                {
-                    ExecuteNonQuery(
-                        "INSERT INTO patients(id, first_name, last_name, pesel, phone, email, address, warning_count, blocked_until) " +
-                        "VALUES(@id, @first_name, @last_name, @pesel, @phone, @email, @address, @warning_count, @blocked_until)",
-                        command =>
-                        {
-                            AddParameter(command, "@id", patient.Id);
-                            AddPatientParameters(command, patient);
-                        });
-                }
-            }
-
-            if (Convert.ToInt32(ExecuteScalar("SELECT COUNT(*) FROM appointments"), CultureInfo.InvariantCulture) == 0)
-            {
-                foreach (Appointment appointment in seed.Appointments)
-                {
-                    ExecuteNonQuery(
-                        "INSERT INTO appointments(id, doctor_id, patient_id, start_at, status, cancel_reason, notes) " +
-                        "VALUES(@id, @doctor_id, @patient_id, @start_at, @status, @cancel_reason, @notes)",
-                        command =>
-                        {
-                            AddParameter(command, "@id", appointment.Id);
-                            AddAppointmentParameters(command, appointment);
-                        });
-                }
-            }
-
-            foreach (Employee employee in seed.Employees)
-            {
-                if (FindEmployeeByLogin(employee.Login) == null
-                    && (employee.IsAdministrator || string.Equals(employee.Login, "rejestrator", StringComparison.OrdinalIgnoreCase)))
-                {
-                    ExecuteNonQuery(
-                        "INSERT INTO employees(id, login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization) " +
-                        "VALUES(@id, @login, @first_name, @last_name, @pesel, @birth_date, @display_name, @role, @password_hash, @password_salt, @created_at, @is_active, @is_doctor, @specialization)",
-                        command =>
-                        {
-                            AddParameter(command, "@id", employee.Id);
-                            AddEmployeeParameters(command, employee);
-                        });
-                }
-            }
-        }
-
-        private int CountActiveAdministrators()
-        {
-            return Convert.ToInt32(
-                ExecuteScalar("SELECT COUNT(*) FROM employees WHERE is_active = 1 AND lower(role) = 'administrator'"),
-                CultureInfo.InvariantCulture);
+            database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_patients_search ON patients(pesel, first_name, last_name, birth_date, phone, email)");
+            database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date ON appointments(doctor_id, start_at, status)");
+            database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id, start_at, status)");
+            database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_employees_search ON employees(first_name, last_name, pesel, birth_date, login)");
         }
 
         private void EnsureColumn(string tableName, string columnName, string type)
         {
             try
             {
-                ExecuteNonQuery("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + type);
+                database.ExecuteNonQuery("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + type);
             }
             catch
             {
-                // SQLite has no ADD COLUMN IF NOT EXISTS in older builds.
+                // Older SQLite builds do not support ADD COLUMN IF NOT EXISTS.
             }
         }
 
-        private DbConnection OpenConnection()
+        private void SeedIfEmpty()
         {
-            DbConnection connection = factory.CreateConnection();
-            connection.ConnectionString = connectionString;
-            connection.Open();
-            return connection;
-        }
+            ClinicSeedData seed = SampleData.Create();
 
-        private static DbProviderFactory LoadFactory()
-        {
-            try
+            if (database.Count("doctors") == 0)
             {
-                return DbProviderFactories.GetFactory("System.Data.SQLite");
-            }
-            catch
-            {
-                Type factoryType = Type.GetType("System.Data.SQLite.SQLiteFactory, System.Data.SQLite");
-                if (factoryType != null)
+                foreach (Doctor doctor in seed.Doctors)
                 {
-                    var instanceField = factoryType.GetField("Instance");
-                    if (instanceField != null)
-                    {
-                        return (DbProviderFactory)instanceField.GetValue(null);
-                    }
+                    InsertDoctor(doctor);
                 }
-
-                throw new InvalidOperationException("Brak providera System.Data.SQLite.");
             }
-        }
 
-        private object ExecuteScalar(string sql)
-        {
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
+            if (database.Count("services") == 0)
             {
-                command.CommandText = sql;
-                return command.ExecuteScalar();
-            }
-        }
-
-        private void ExecuteNonQuery(string sql)
-        {
-            ExecuteNonQuery(sql, null);
-        }
-
-        private void ExecuteNonQuery(string sql, Action<DbCommand> configure)
-        {
-            using (DbConnection connection = OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = sql;
-                if (configure != null)
+                foreach (MedicalService service in seed.Services)
                 {
-                    configure(command);
+                    InsertService(service);
                 }
+            }
 
-                command.ExecuteNonQuery();
+            if (database.Count("schedules") == 0)
+            {
+                foreach (ScheduleEntry schedule in seed.Schedules)
+                {
+                    InsertSchedule(schedule);
+                }
+            }
+
+            if (database.Count("patients") == 0)
+            {
+                foreach (Patient patient in seed.Patients)
+                {
+                    InsertPatient(patient);
+                }
+            }
+
+            if (database.Count("appointments") == 0)
+            {
+                foreach (Appointment appointment in seed.Appointments)
+                {
+                    InsertAppointment(appointment);
+                }
+            }
+
+            if (database.Count("patient_notes") == 0)
+            {
+                foreach (PatientNote note in seed.PatientNotes)
+                {
+                    InsertPatientNote(note);
+                }
+            }
+
+            if (database.Count("patient_warnings") == 0)
+            {
+                foreach (PatientWarning warning in seed.PatientWarnings)
+                {
+                    InsertPatientWarning(warning);
+                }
+            }
+
+            foreach (Employee employee in seed.Employees)
+            {
+                if (!EmployeeLoginExists(employee.Login)
+                    && (employee.IsAdministrator || string.Equals(employee.Login, "rejestrator", StringComparison.OrdinalIgnoreCase)))
+                {
+                    InsertEmployee(employee);
+                }
             }
         }
 
-        private static void AddPatientParameters(DbCommand command, Patient patient)
+        private ClinicSeedData LoadData()
         {
-            AddParameter(command, "@first_name", patient.FirstName);
-            AddParameter(command, "@last_name", patient.LastName);
-            AddParameter(command, "@pesel", patient.Pesel);
-            AddParameter(command, "@phone", patient.Phone);
-            AddParameter(command, "@email", patient.Email);
-            AddParameter(command, "@address", patient.Address);
-            AddParameter(command, "@warning_count", patient.WarningCount);
-            AddParameter(command, "@blocked_until", patient.BlockedUntil.HasValue ? ToDbDate(patient.BlockedUntil.Value) : null);
+            var data = new ClinicSeedData();
+            data.Doctors.AddRange(database.Query("SELECT id, first_name, last_name, specialization FROM doctors").Select(ReadDoctor));
+            data.Services.AddRange(database.Query("SELECT id, name, specialization, is_active FROM services").Select(ReadService));
+            data.Schedules.AddRange(database.Query("SELECT id, doctor_id, day_of_week, start_time, end_time FROM schedules").Select(ReadSchedule));
+            data.Patients.AddRange(database.Query("SELECT id, first_name, last_name, pesel, birth_date, phone, email, address, notes, warning_count, blocked_until FROM patients").Select(ReadPatient));
+            data.Appointments.AddRange(database.Query("SELECT id, doctor_id, patient_id, start_at, status, cancel_reason, notes FROM appointments").Select(ReadAppointment));
+            data.Employees.AddRange(database.Query("SELECT id, login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization FROM employees").Select(ReadEmployee));
+            data.PatientNotes.AddRange(database.Query("SELECT id, patient_id, created_at, note_text FROM patient_notes").Select(ReadPatientNote));
+            data.PatientWarnings.AddRange(database.Query("SELECT id, patient_id, created_at, reason FROM patient_warnings").Select(ReadPatientWarning));
+            return data;
         }
 
-        private static void AddAppointmentParameters(DbCommand command, Appointment appointment)
+        private bool EmployeeLoginExists(string login)
         {
-            AddParameter(command, "@doctor_id", appointment.DoctorId);
-            AddParameter(command, "@patient_id", appointment.PatientId.HasValue ? (object)appointment.PatientId.Value : null);
-            AddParameter(command, "@start_at", ToDbDate(appointment.StartAt));
-            AddParameter(command, "@status", appointment.Status.ToString());
-            AddParameter(command, "@cancel_reason", appointment.CancelReason);
-            AddParameter(command, "@notes", appointment.Notes);
+            object result = database.ExecuteScalar(
+                "SELECT COUNT(*) FROM employees WHERE lower(login) = lower(?)",
+                SqlValue.Text(login));
+            return Convert.ToInt32(result, CultureInfo.InvariantCulture) > 0;
         }
 
-        private static void AddEmployeeParameters(DbCommand command, Employee employee)
+        private void InsertPatient(Patient patient)
         {
-            AddParameter(command, "@login", employee.Login);
-            AddParameter(command, "@first_name", employee.FirstName);
-            AddParameter(command, "@last_name", employee.LastName);
-            AddParameter(command, "@pesel", employee.Pesel);
-            AddParameter(command, "@birth_date", employee.BirthDate.HasValue ? employee.BirthDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null);
-            AddParameter(command, "@display_name", employee.FullName);
-            AddParameter(command, "@role", EmployeeRoles.Normalize(employee.Role));
-            AddParameter(command, "@password_hash", employee.PasswordHash);
-            AddParameter(command, "@password_salt", employee.PasswordSalt);
-            AddParameter(command, "@created_at", ToDbDate(employee.CreatedAt));
-            AddParameter(command, "@is_active", employee.IsActive ? 1 : 0);
-            AddParameter(command, "@is_doctor", employee.IsDoctor ? 1 : 0);
-            AddParameter(command, "@specialization", employee.Specialization);
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO patients(id, first_name, last_name, pesel, birth_date, phone, email, address, notes, warning_count, blocked_until) " +
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                SqlValue.Int(patient.Id),
+                SqlValue.Text(patient.FirstName),
+                SqlValue.Text(patient.LastName),
+                SqlValue.Text(patient.Pesel),
+                SqlValue.Date(patient.BirthDate),
+                SqlValue.Text(patient.Phone),
+                SqlValue.Text(patient.Email),
+                SqlValue.Text(patient.Address),
+                SqlValue.Text(patient.Notes),
+                SqlValue.Int(patient.WarningCount),
+                SqlValue.Date(patient.BlockedUntil));
         }
 
-        private static void AddParameter(DbCommand command, string name, object value)
+        private void UpdatePatient(Patient patient)
         {
-            DbParameter parameter = command.CreateParameter();
-            parameter.ParameterName = name;
-            parameter.Value = value ?? DBNull.Value;
-            command.Parameters.Add(parameter);
+            if (patient != null)
+            {
+                InsertPatient(patient);
+            }
         }
 
-        private const string EmployeeSelectSql =
-            "SELECT id, login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization FROM employees";
+        private void InsertDoctor(Doctor doctor)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO doctors(id, first_name, last_name, specialization) VALUES(?, ?, ?, ?)",
+                SqlValue.Int(doctor.Id),
+                SqlValue.Text(doctor.FirstName),
+                SqlValue.Text(doctor.LastName),
+                SqlValue.Text(doctor.Specialization));
+        }
 
-        private static Doctor ReadDoctor(IDataRecord reader)
+        private void InsertService(MedicalService service)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO services(id, name, specialization, is_active) VALUES(?, ?, ?, ?)",
+                SqlValue.Int(service.Id),
+                SqlValue.Text(service.Name),
+                SqlValue.Text(service.Specialization),
+                SqlValue.Bool(service.IsActive));
+        }
+
+        private void InsertSchedule(ScheduleEntry schedule)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO schedules(id, doctor_id, day_of_week, start_time, end_time) VALUES(?, ?, ?, ?, ?)",
+                SqlValue.Int(schedule.Id),
+                SqlValue.Int(schedule.DoctorId),
+                SqlValue.Int((int)schedule.DayOfWeek),
+                SqlValue.Text(schedule.StartTime.ToString()),
+                SqlValue.Text(schedule.EndTime.ToString()));
+        }
+
+        private void InsertAppointment(Appointment appointment)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO appointments(id, doctor_id, patient_id, start_at, status, cancel_reason, notes) VALUES(?, ?, ?, ?, ?, ?, ?)",
+                SqlValue.Int(appointment.Id),
+                SqlValue.Int(appointment.DoctorId),
+                appointment.PatientId.HasValue ? SqlValue.Int(appointment.PatientId.Value) : SqlValue.Null(),
+                SqlValue.Text(ToDbDateTime(appointment.StartAt)),
+                SqlValue.Text(appointment.Status.ToString()),
+                SqlValue.Text(appointment.CancelReason),
+                SqlValue.Text(appointment.Notes));
+        }
+
+        private void UpdateAppointment(Appointment appointment)
+        {
+            InsertAppointment(appointment);
+        }
+
+        private void InsertEmployee(Employee employee)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO employees(id, login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization) " +
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                SqlValue.Int(employee.Id),
+                SqlValue.Text(employee.Login),
+                SqlValue.Text(employee.FirstName),
+                SqlValue.Text(employee.LastName),
+                SqlValue.Text(employee.Pesel),
+                SqlValue.Date(employee.BirthDate),
+                SqlValue.Text(employee.FullName),
+                SqlValue.Text(EmployeeRoles.Normalize(employee.Role)),
+                SqlValue.Text(employee.PasswordHash),
+                SqlValue.Text(employee.PasswordSalt),
+                SqlValue.Text(ToDbDateTime(employee.CreatedAt)),
+                SqlValue.Bool(employee.IsActive),
+                SqlValue.Bool(employee.IsDoctor),
+                SqlValue.Text(employee.Specialization));
+        }
+
+        private void InsertPatientNote(PatientNote note)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO patient_notes(id, patient_id, created_at, note_text) VALUES(?, ?, ?, ?)",
+                SqlValue.Int(note.Id),
+                SqlValue.Int(note.PatientId),
+                SqlValue.Text(ToDbDateTime(note.CreatedAt)),
+                SqlValue.Text(note.Text));
+        }
+
+        private void InsertPatientWarning(PatientWarning warning)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO patient_warnings(id, patient_id, created_at, reason) VALUES(?, ?, ?, ?)",
+                SqlValue.Int(warning.Id),
+                SqlValue.Int(warning.PatientId),
+                SqlValue.Text(ToDbDateTime(warning.CreatedAt)),
+                SqlValue.Text(warning.Reason));
+        }
+
+        private static Doctor ReadDoctor(Dictionary<string, object> row)
         {
             return new Doctor
             {
-                Id = Convert.ToInt32(reader["id"], CultureInfo.InvariantCulture),
-                FirstName = Convert.ToString(reader["first_name"], CultureInfo.InvariantCulture),
-                LastName = Convert.ToString(reader["last_name"], CultureInfo.InvariantCulture),
-                Specialization = Convert.ToString(reader["specialization"], CultureInfo.InvariantCulture)
+                Id = RowInt(row, "id"),
+                FirstName = RowText(row, "first_name"),
+                LastName = RowText(row, "last_name"),
+                Specialization = RowText(row, "specialization")
             };
         }
 
-        private static Patient ReadPatient(IDataRecord reader)
+        private static MedicalService ReadService(Dictionary<string, object> row)
+        {
+            return new MedicalService
+            {
+                Id = RowInt(row, "id"),
+                Name = RowText(row, "name"),
+                Specialization = RowText(row, "specialization"),
+                IsActive = RowBool(row, "is_active")
+            };
+        }
+
+        private static ScheduleEntry ReadSchedule(Dictionary<string, object> row)
+        {
+            return new ScheduleEntry
+            {
+                Id = RowInt(row, "id"),
+                DoctorId = RowInt(row, "doctor_id"),
+                DayOfWeek = (DayOfWeek)RowInt(row, "day_of_week"),
+                StartTime = TimeSpan.Parse(RowText(row, "start_time"), CultureInfo.InvariantCulture),
+                EndTime = TimeSpan.Parse(RowText(row, "end_time"), CultureInfo.InvariantCulture)
+            };
+        }
+
+        private static Patient ReadPatient(Dictionary<string, object> row)
         {
             return new Patient
             {
-                Id = Convert.ToInt32(reader["id"], CultureInfo.InvariantCulture),
-                FirstName = Convert.ToString(reader["first_name"], CultureInfo.InvariantCulture),
-                LastName = Convert.ToString(reader["last_name"], CultureInfo.InvariantCulture),
-                Pesel = Convert.ToString(reader["pesel"], CultureInfo.InvariantCulture),
-                Phone = Convert.ToString(reader["phone"], CultureInfo.InvariantCulture),
-                Email = Convert.ToString(reader["email"], CultureInfo.InvariantCulture),
-                Address = Convert.ToString(reader["address"], CultureInfo.InvariantCulture),
-                WarningCount = Convert.ToInt32(reader["warning_count"], CultureInfo.InvariantCulture),
-                BlockedUntil = ReadNullableDate(reader["blocked_until"])
+                Id = RowInt(row, "id"),
+                FirstName = RowText(row, "first_name"),
+                LastName = RowText(row, "last_name"),
+                Pesel = RowText(row, "pesel"),
+                BirthDate = RowDate(row, "birth_date"),
+                Phone = RowText(row, "phone"),
+                Email = RowText(row, "email"),
+                Address = RowText(row, "address"),
+                Notes = RowText(row, "notes"),
+                WarningCount = RowInt(row, "warning_count"),
+                BlockedUntil = RowDate(row, "blocked_until")
             };
         }
 
-        private static Appointment ReadAppointment(IDataRecord reader)
+        private static Appointment ReadAppointment(Dictionary<string, object> row)
         {
             return new Appointment
             {
-                Id = Convert.ToInt32(reader["id"], CultureInfo.InvariantCulture),
-                DoctorId = Convert.ToInt32(reader["doctor_id"], CultureInfo.InvariantCulture),
-                PatientId = reader["patient_id"] == DBNull.Value
-                    ? (int?)null
-                    : Convert.ToInt32(reader["patient_id"], CultureInfo.InvariantCulture),
-                StartAt = DateTime.Parse(Convert.ToString(reader["start_at"], CultureInfo.InvariantCulture), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-                Status = (AppointmentStatus)Enum.Parse(typeof(AppointmentStatus), Convert.ToString(reader["status"], CultureInfo.InvariantCulture)),
-                CancelReason = Convert.ToString(reader["cancel_reason"], CultureInfo.InvariantCulture),
-                Notes = Convert.ToString(reader["notes"], CultureInfo.InvariantCulture)
+                Id = RowInt(row, "id"),
+                DoctorId = RowInt(row, "doctor_id"),
+                PatientId = RowHasValue(row, "patient_id") ? (int?)RowInt(row, "patient_id") : null,
+                StartAt = RowDateTime(row, "start_at") ?? DateTime.Today,
+                Status = (AppointmentStatus)Enum.Parse(typeof(AppointmentStatus), RowText(row, "status")),
+                CancelReason = RowText(row, "cancel_reason"),
+                Notes = RowText(row, "notes")
             };
         }
 
-        private static Employee ReadEmployee(IDataRecord reader)
+        private static Employee ReadEmployee(Dictionary<string, object> row)
         {
             var employee = new Employee
             {
-                Id = Convert.ToInt32(reader["id"], CultureInfo.InvariantCulture),
-                Login = Convert.ToString(reader["login"], CultureInfo.InvariantCulture),
-                FirstName = Convert.ToString(reader["first_name"], CultureInfo.InvariantCulture),
-                LastName = Convert.ToString(reader["last_name"], CultureInfo.InvariantCulture),
-                Pesel = Convert.ToString(reader["pesel"], CultureInfo.InvariantCulture),
-                BirthDate = ReadNullableSimpleDate(reader["birth_date"]),
-                DisplayName = Convert.ToString(reader["display_name"], CultureInfo.InvariantCulture),
-                Role = EmployeeRoles.Normalize(Convert.ToString(reader["role"], CultureInfo.InvariantCulture)),
-                PasswordHash = Convert.ToString(reader["password_hash"], CultureInfo.InvariantCulture),
-                PasswordSalt = Convert.ToString(reader["password_salt"], CultureInfo.InvariantCulture),
-                CreatedAt = DateTime.Parse(Convert.ToString(reader["created_at"], CultureInfo.InvariantCulture), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-                IsActive = Convert.ToInt32(reader["is_active"], CultureInfo.InvariantCulture) == 1,
-                IsDoctor = Convert.ToInt32(reader["is_doctor"], CultureInfo.InvariantCulture) == 1,
-                Specialization = Convert.ToString(reader["specialization"], CultureInfo.InvariantCulture)
+                Id = RowInt(row, "id"),
+                Login = RowText(row, "login"),
+                FirstName = RowText(row, "first_name"),
+                LastName = RowText(row, "last_name"),
+                Pesel = RowText(row, "pesel"),
+                BirthDate = RowDate(row, "birth_date"),
+                DisplayName = RowText(row, "display_name"),
+                Role = EmployeeRoles.Normalize(RowText(row, "role")),
+                PasswordHash = RowText(row, "password_hash"),
+                PasswordSalt = RowText(row, "password_salt"),
+                CreatedAt = RowDateTime(row, "created_at") ?? DateTime.Now,
+                IsActive = RowBool(row, "is_active"),
+                IsDoctor = RowBool(row, "is_doctor"),
+                Specialization = RowText(row, "specialization")
             };
 
             if (string.IsNullOrWhiteSpace(employee.DisplayName))
@@ -1549,29 +1308,358 @@ namespace VS_CUWSISMED
             return employee;
         }
 
-        private static DateTime? ReadNullableDate(object value)
+        private static PatientNote ReadPatientNote(Dictionary<string, object> row)
         {
-            if (value == null || value == DBNull.Value || string.IsNullOrWhiteSpace(Convert.ToString(value, CultureInfo.InvariantCulture)))
+            return new PatientNote
+            {
+                Id = RowInt(row, "id"),
+                PatientId = RowInt(row, "patient_id"),
+                CreatedAt = RowDateTime(row, "created_at") ?? DateTime.Now,
+                Text = RowText(row, "note_text")
+            };
+        }
+
+        private static PatientWarning ReadPatientWarning(Dictionary<string, object> row)
+        {
+            return new PatientWarning
+            {
+                Id = RowInt(row, "id"),
+                PatientId = RowInt(row, "patient_id"),
+                CreatedAt = RowDateTime(row, "created_at") ?? DateTime.Now,
+                Reason = RowText(row, "reason")
+            };
+        }
+
+        private static bool RowHasValue(Dictionary<string, object> row, string name)
+        {
+            return row.ContainsKey(name) && row[name] != null;
+        }
+
+        private static string RowText(Dictionary<string, object> row, string name)
+        {
+            return RowHasValue(row, name) ? Convert.ToString(row[name], CultureInfo.InvariantCulture) : string.Empty;
+        }
+
+        private static int RowInt(Dictionary<string, object> row, string name)
+        {
+            return RowHasValue(row, name) ? Convert.ToInt32(row[name], CultureInfo.InvariantCulture) : 0;
+        }
+
+        private static bool RowBool(Dictionary<string, object> row, string name)
+        {
+            return RowInt(row, name) == 1;
+        }
+
+        private static DateTime? RowDate(Dictionary<string, object> row, string name)
+        {
+            string value = RowText(row, name);
+            if (string.IsNullOrWhiteSpace(value))
             {
                 return null;
             }
 
-            return DateTime.Parse(Convert.ToString(value, CultureInfo.InvariantCulture), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+            return DateTime.Parse(value, CultureInfo.InvariantCulture).Date;
         }
 
-        private static DateTime? ReadNullableSimpleDate(object value)
+        private static DateTime? RowDateTime(Dictionary<string, object> row, string name)
         {
-            if (value == null || value == DBNull.Value || string.IsNullOrWhiteSpace(Convert.ToString(value, CultureInfo.InvariantCulture)))
+            string value = RowText(row, name);
+            if (string.IsNullOrWhiteSpace(value))
             {
                 return null;
             }
 
-            return DateTime.Parse(Convert.ToString(value, CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            return DateTime.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
         }
 
-        private static string ToDbDate(DateTime value)
+        private static string ToDbDateTime(DateTime value)
         {
             return value.ToString("o", CultureInfo.InvariantCulture);
         }
+    }
+
+    internal sealed class SqlValue
+    {
+        public object Value { get; private set; }
+
+        private SqlValue(object value)
+        {
+            Value = value;
+        }
+
+        public static SqlValue Text(string value)
+        {
+            return new SqlValue(value);
+        }
+
+        public static SqlValue Int(int value)
+        {
+            return new SqlValue(value);
+        }
+
+        public static SqlValue Bool(bool value)
+        {
+            return new SqlValue(value ? 1 : 0);
+        }
+
+        public static SqlValue Date(DateTime? value)
+        {
+            return new SqlValue(value.HasValue ? value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null);
+        }
+
+        public static SqlValue Null()
+        {
+            return new SqlValue(null);
+        }
+    }
+
+    internal sealed class NativeSqliteDatabase
+    {
+        private const int SQLITE_OK = 0;
+        private const int SQLITE_ROW = 100;
+        private const int SQLITE_DONE = 101;
+        private const int SQLITE_INTEGER = 1;
+        private const int SQLITE_TEXT = 3;
+        private const int SQLITE_NULL = 5;
+        private static readonly IntPtr SQLITE_TRANSIENT = new IntPtr(-1);
+        private readonly string databasePath;
+
+        public NativeSqliteDatabase(string databasePath)
+        {
+            this.databasePath = databasePath;
+        }
+
+        public int Count(string tableName)
+        {
+            object result = ExecuteScalar("SELECT COUNT(*) FROM " + tableName);
+            return Convert.ToInt32(result, CultureInfo.InvariantCulture);
+        }
+
+        public object ExecuteScalar(string sql, params SqlValue[] parameters)
+        {
+            List<Dictionary<string, object>> rows = Query(sql, parameters);
+            if (rows.Count == 0 || rows[0].Count == 0)
+            {
+                return null;
+            }
+
+            return rows[0].Values.FirstOrDefault();
+        }
+
+        public void ExecuteNonQuery(string sql, params SqlValue[] parameters)
+        {
+            IntPtr db = Open();
+            IntPtr statement = IntPtr.Zero;
+            try
+            {
+                statement = Prepare(db, sql);
+                Bind(statement, parameters);
+                int result = sqlite3_step(statement);
+                if (result != SQLITE_DONE && result != SQLITE_ROW)
+                {
+                    ThrowSqlite(db, result);
+                }
+            }
+            finally
+            {
+                FinalizeStatement(statement);
+                Close(db);
+            }
+        }
+
+        public List<Dictionary<string, object>> Query(string sql, params SqlValue[] parameters)
+        {
+            IntPtr db = Open();
+            IntPtr statement = IntPtr.Zero;
+            try
+            {
+                statement = Prepare(db, sql);
+                Bind(statement, parameters);
+
+                var rows = new List<Dictionary<string, object>>();
+                while (true)
+                {
+                    int result = sqlite3_step(statement);
+                    if (result == SQLITE_DONE)
+                    {
+                        return rows;
+                    }
+
+                    if (result != SQLITE_ROW)
+                    {
+                        ThrowSqlite(db, result);
+                    }
+
+                    rows.Add(ReadRow(statement));
+                }
+            }
+            finally
+            {
+                FinalizeStatement(statement);
+                Close(db);
+            }
+        }
+
+        private IntPtr Open()
+        {
+            IntPtr db;
+            int result = sqlite3_open16(databasePath, out db);
+            if (result != SQLITE_OK)
+            {
+                ThrowSqlite(db, result);
+            }
+
+            IntPtr error;
+            result = sqlite3_exec(db, "PRAGMA foreign_keys = ON;", IntPtr.Zero, IntPtr.Zero, out error);
+            if (result != SQLITE_OK)
+            {
+                ThrowSqlite(db, result);
+            }
+
+            return db;
+        }
+
+        private static IntPtr Prepare(IntPtr db, string sql)
+        {
+            IntPtr statement;
+            int result = sqlite3_prepare16_v2(db, sql, -1, out statement, IntPtr.Zero);
+            if (result != SQLITE_OK)
+            {
+                ThrowSqlite(db, result);
+            }
+
+            return statement;
+        }
+
+        private static void Bind(IntPtr statement, SqlValue[] parameters)
+        {
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                object value = parameters[i] == null ? null : parameters[i].Value;
+                int index = i + 1;
+                int result;
+
+                if (value == null)
+                {
+                    result = sqlite3_bind_null(statement, index);
+                }
+                else if (value is int)
+                {
+                    result = sqlite3_bind_int(statement, index, (int)value);
+                }
+                else
+                {
+                    result = sqlite3_bind_text16(statement, index, Convert.ToString(value, CultureInfo.InvariantCulture), -1, SQLITE_TRANSIENT);
+                }
+
+                if (result != SQLITE_OK)
+                {
+                    throw new InvalidOperationException("Nie udalo sie powiazac parametru SQLite.");
+                }
+            }
+        }
+
+        private static Dictionary<string, object> ReadRow(IntPtr statement)
+        {
+            int count = sqlite3_column_count(statement);
+            var row = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < count; i++)
+            {
+                string name = PtrToString(sqlite3_column_name16(statement, i));
+                int type = sqlite3_column_type(statement, i);
+
+                if (type == SQLITE_NULL)
+                {
+                    row[name] = null;
+                }
+                else if (type == SQLITE_INTEGER)
+                {
+                    row[name] = sqlite3_column_int(statement, i);
+                }
+                else if (type == SQLITE_TEXT)
+                {
+                    row[name] = PtrToString(sqlite3_column_text16(statement, i));
+                }
+                else
+                {
+                    row[name] = PtrToString(sqlite3_column_text16(statement, i));
+                }
+            }
+
+            return row;
+        }
+
+        private static string PtrToString(IntPtr pointer)
+        {
+            return pointer == IntPtr.Zero ? string.Empty : Marshal.PtrToStringUni(pointer);
+        }
+
+        private static void FinalizeStatement(IntPtr statement)
+        {
+            if (statement != IntPtr.Zero)
+            {
+                sqlite3_finalize(statement);
+            }
+        }
+
+        private static void Close(IntPtr db)
+        {
+            if (db != IntPtr.Zero)
+            {
+                sqlite3_close(db);
+            }
+        }
+
+        private static void ThrowSqlite(IntPtr db, int result)
+        {
+            string message = db == IntPtr.Zero ? "SQLite error " + result : PtrToString(sqlite3_errmsg16(db));
+            throw new InvalidOperationException(message);
+        }
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern int sqlite3_open16(string filename, out IntPtr db);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern int sqlite3_prepare16_v2(IntPtr db, string sql, int nByte, out IntPtr statement, IntPtr tail);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private static extern int sqlite3_exec(IntPtr db, string sql, IntPtr callback, IntPtr arg, out IntPtr errorMessage);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_step(IntPtr statement);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_finalize(IntPtr statement);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_close(IntPtr db);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_bind_null(IntPtr statement, int index);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_bind_int(IntPtr statement, int index, int value);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
+        private static extern int sqlite3_bind_text16(IntPtr statement, int index, string value, int bytes, IntPtr destructor);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_column_count(IntPtr statement);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_column_type(IntPtr statement, int column);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_column_int(IntPtr statement, int column);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr sqlite3_column_text16(IntPtr statement, int column);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr sqlite3_column_name16(IntPtr statement, int column);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr sqlite3_errmsg16(IntPtr db);
     }
 }

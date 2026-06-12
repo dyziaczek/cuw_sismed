@@ -5,9 +5,11 @@ CREATE TABLE IF NOT EXISTS patients (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     pesel TEXT NOT NULL UNIQUE,
+    birth_date TEXT,
     phone TEXT,
     email TEXT,
     address TEXT,
+    notes TEXT,
     warning_count INTEGER NOT NULL DEFAULT 0,
     blocked_until TEXT
 );
@@ -17,6 +19,13 @@ CREATE TABLE IF NOT EXISTS doctors (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     specialization TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS services (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    specialization TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS appointments (
@@ -57,8 +66,24 @@ CREATE TABLE IF NOT EXISTS employees (
     specialization TEXT
 );
 
+CREATE TABLE IF NOT EXISTS patient_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    note_text TEXT NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patients(id)
+);
+
+CREATE TABLE IF NOT EXISTS patient_warnings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    FOREIGN KEY (patient_id) REFERENCES patients(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_patients_search
-    ON patients(pesel, phone, email);
+    ON patients(pesel, first_name, last_name, birth_date, phone, email);
 
 CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date
     ON appointments(doctor_id, start_at, status);

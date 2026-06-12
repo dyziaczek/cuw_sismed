@@ -31,9 +31,11 @@ namespace VS_CUWSISMED
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string Pesel { get; set; }
+        public DateTime? BirthDate { get; set; }
         public string Phone { get; set; }
         public string Email { get; set; }
         public string Address { get; set; }
+        public string Notes { get; set; }
         public int WarningCount { get; set; }
         public DateTime? BlockedUntil { get; set; }
 
@@ -113,6 +115,30 @@ namespace VS_CUWSISMED
         public TimeSpan EndTime { get; set; }
     }
 
+    public sealed class MedicalService
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Specialization { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    public sealed class PatientNote
+    {
+        public int Id { get; set; }
+        public int PatientId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string Text { get; set; }
+    }
+
+    public sealed class PatientWarning
+    {
+        public int Id { get; set; }
+        public int PatientId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string Reason { get; set; }
+    }
+
     public sealed class Employee
     {
         public int Id { get; set; }
@@ -160,6 +186,29 @@ namespace VS_CUWSISMED
     {
         public Doctor Doctor { get; set; }
         public DateTime StartAt { get; set; }
+    }
+
+    public sealed class PatientSearchCriteria
+    {
+        public string Pesel { get; set; }
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public DateTime? BirthDate { get; set; }
+        public string Phone { get; set; }
+        public string Email { get; set; }
+
+        public bool IsEmpty
+        {
+            get
+            {
+                return string.IsNullOrWhiteSpace(Pesel)
+                    && string.IsNullOrWhiteSpace(FirstName)
+                    && string.IsNullOrWhiteSpace(LastName)
+                    && !BirthDate.HasValue
+                    && string.IsNullOrWhiteSpace(Phone)
+                    && string.IsNullOrWhiteSpace(Email);
+            }
+        }
     }
 
     public sealed class RegistrationResult

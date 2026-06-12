@@ -65,6 +65,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="AppointmentCalendarWindow.Designer.cs" />
+    <Compile Include="InputValidation.cs" />
     <Compile Include="main_app.cs">
       <SubType>Form</SubType>
     </Compile>

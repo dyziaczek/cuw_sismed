@@ -10,6 +10,9 @@ namespace VS_CUWSISMED
         public List<ScheduleEntry> Schedules { get; private set; }
         public List<Appointment> Appointments { get; private set; }
         public List<Employee> Employees { get; private set; }
+        public List<MedicalService> Services { get; private set; }
+        public List<PatientNote> PatientNotes { get; private set; }
+        public List<PatientWarning> PatientWarnings { get; private set; }
 
         public ClinicSeedData()
         {
@@ -18,6 +21,9 @@ namespace VS_CUWSISMED
             Schedules = new List<ScheduleEntry>();
             Appointments = new List<Appointment>();
             Employees = new List<Employee>();
+            Services = new List<MedicalService>();
+            PatientNotes = new List<PatientNote>();
+            PatientWarnings = new List<PatientWarning>();
         }
     }
 
@@ -57,9 +63,11 @@ namespace VS_CUWSISMED
                 FirstName = "Anna",
                 LastName = "Kowalska",
                 Pesel = "82010112345",
+                BirthDate = new DateTime(1982, 1, 1),
                 Phone = "501222333",
                 Email = "anna.kowalska@example.com",
                 Address = "ul. Zdrowa 1, Warszawa",
+                Notes = "Pacjentka preferuje kontakt telefoniczny.",
                 WarningCount = 0
             });
 
@@ -69,9 +77,11 @@ namespace VS_CUWSISMED
                 FirstName = "Jan",
                 LastName = "Nowak",
                 Pesel = "76020254321",
+                BirthDate = new DateTime(1976, 2, 2),
                 Phone = "502333444",
                 Email = "jan.nowak@example.com",
                 Address = "ul. Szpitalna 7, Warszawa",
+                Notes = "Wizyta kontrolna po badaniach.",
                 WarningCount = 1
             });
 
@@ -81,6 +91,30 @@ namespace VS_CUWSISMED
                 FirstName = "Maria",
                 LastName = "Zielinska",
                 Specialization = "Internista"
+            });
+
+            data.Services.Add(new MedicalService
+            {
+                Id = 1,
+                Name = "Konsultacja internistyczna",
+                Specialization = "Internista",
+                IsActive = true
+            });
+
+            data.Services.Add(new MedicalService
+            {
+                Id = 2,
+                Name = "Konsultacja kardiologiczna",
+                Specialization = "Kardiolog",
+                IsActive = true
+            });
+
+            data.Services.Add(new MedicalService
+            {
+                Id = 3,
+                Name = "Konsultacja dermatologiczna",
+                Specialization = "Dermatolog",
+                IsActive = true
             });
 
             data.Doctors.Add(new Doctor
@@ -157,6 +191,22 @@ namespace VS_CUWSISMED
                 StartAt = DateTime.Today.AddDays(1).AddHours(10).AddMinutes(15),
                 Status = AppointmentStatus.Reserved,
                 Notes = "Kontrola"
+            });
+
+            data.PatientNotes.Add(new PatientNote
+            {
+                Id = 1,
+                PatientId = 1,
+                CreatedAt = DateTime.Now,
+                Text = "Pacjentka preferuje kontakt telefoniczny."
+            });
+
+            data.PatientWarnings.Add(new PatientWarning
+            {
+                Id = 1,
+                PatientId = 2,
+                CreatedAt = DateTime.Now.AddDays(-14),
+                Reason = "Odwołanie wizyty mniej niż 24h przed terminem."
             });
 
             return data;

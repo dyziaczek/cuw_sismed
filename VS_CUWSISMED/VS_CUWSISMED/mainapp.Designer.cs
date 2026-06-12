@@ -217,7 +217,7 @@ namespace VS_CUWSISMED
             pnlReceptionSidebar = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 310,
+                Width = 340,
                 BackColor = card,
                 Padding = new Padding(18)
             };
@@ -228,37 +228,49 @@ namespace VS_CUWSISMED
                 Font = labelFont,
                 ForeColor = muted,
                 Location = new Point(18, 18),
-                Size = new Size(270, 20)
+                Size = new Size(292, 20)
             };
 
-            txtSearch = CreateTextBox("PESEL / Telefon / E-mail / Nazwisko", 18, 48, 270);
-            btnSearch = CreateActionButton("Szukaj", 18, 94, 270, magenta);
+            txtPatientPesel = CreateTextBox("PESEL", 18, 48, 292);
+            txtPatientFirstName = CreateTextBox("Imie", 18, 90, 140);
+            txtPatientLastName = CreateTextBox("Nazwisko", 170, 90, 140);
+            txtPatientBirthDate = CreateTextBox("Data urodzenia dd.MM.yyyy", 18, 132, 292);
+            txtPatientPhone = CreateTextBox("Telefon", 18, 174, 140);
+            txtPatientEmail = CreateTextBox("E-mail", 170, 174, 140);
+            btnSearch = CreateActionButton("Szukaj", 18, 222, 140, magenta);
             btnSearch.Click += btnSearch_Click;
+            btnClearPatientSearch = CreateActionButton("Wyczyść", 170, 222, 140, blue);
+            btnClearPatientSearch.Click += btnClearPatientSearch_Click;
+            btnAddPatient = CreateActionButton("+ Dodaj pacjenta", 18, 270, 292, Color.FromArgb(0, 130, 110));
+            btnAddPatient.Click += btnAddPatient_Click;
 
             pnlPatientCard = new Panel
             {
                 BackColor = Color.FromArgb(246, 248, 252),
-                Location = new Point(18, 148),
-                Size = new Size(270, 180),
+                Location = new Point(18, 326),
+                Size = new Size(292, 260),
                 BorderStyle = BorderStyle.FixedSingle
             };
 
             lblPatientName = CreateInfoLabel("- Brak wybranego pacjenta -", 12, 14, text, true);
             lblPatientPesel = CreateInfoLabel("PESEL: -", 12, 62, muted, false);
-            lblPatientPhone = CreateInfoLabel("Tel: -", 12, 88, muted, false);
-            lblPatientWarnings = CreateInfoLabel("Ostrzezenia: 0/3", 12, 114, muted, false);
-            lblPatientStatus = CreateInfoLabel("", 12, 140, Color.OrangeRed, true);
+            lblPatientBirthDate = CreateInfoLabel("Data ur.: -", 12, 88, muted, false);
+            lblPatientPhone = CreateInfoLabel("Tel: -", 12, 114, muted, false);
+            lblPatientEmail = CreateInfoLabel("E-mail: -", 12, 140, muted, false);
+            lblPatientWarnings = CreateInfoLabel("Ostrzezenia: 0/3", 12, 166, muted, false);
+            lblPatientNotes = CreateInfoLabel("Notatka: -", 12, 192, muted, false);
+            lblPatientStatus = CreateInfoLabel("", 12, 230, Color.OrangeRed, true);
             pnlPatientCard.Controls.AddRange(new Control[]
             {
-                lblPatientName, lblPatientPesel, lblPatientPhone, lblPatientWarnings, lblPatientStatus
+                lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone,
+                lblPatientEmail, lblPatientWarnings, lblPatientNotes, lblPatientStatus
             });
-
-            btnAddPatient = CreateActionButton("+ Dodaj pacjenta", 18, 350, 270, Color.FromArgb(0, 130, 110));
-            btnAddPatient.Click += btnAddPatient_Click;
 
             pnlReceptionSidebar.Controls.AddRange(new Control[]
             {
-                lblSearch, txtSearch, btnSearch, pnlPatientCard, btnAddPatient
+                lblSearch, txtPatientPesel, txtPatientFirstName, txtPatientLastName,
+                txtPatientBirthDate, txtPatientPhone, txtPatientEmail,
+                btnSearch, btnClearPatientSearch, btnAddPatient, pnlPatientCard
             });
 
             tabControl = new TabControl
@@ -638,14 +650,16 @@ namespace VS_CUWSISMED
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails;
         private PictureBox picLogo;
         private Label lblNavTitle, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;
-        private Label lblPatientName, lblPatientPesel, lblPatientPhone, lblPatientWarnings, lblPatientStatus;
+        private Label lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone;
+        private Label lblPatientEmail, lblPatientWarnings, lblPatientNotes, lblPatientStatus;
         private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate;
         private Label lblSwapResult;
         private Label lblEmployeeName, lblEmployeePesel, lblEmployeeBirthDate, lblEmployeeLogin;
         private Label lblEmployeeRole, lblEmployeeStatus, lblEmployeeDoctor, lblEmployeeSpecialization;
-        private Guna2TextBox txtSearch, txtSwapSearch, txtEmployeeSearch;
+        private Guna2TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
+        private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch;
         private Guna2Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
-        private Guna2Button btnSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
+        private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
         private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
         private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
         private ComboBox cmbDoctor, cmbCalDoctor;
