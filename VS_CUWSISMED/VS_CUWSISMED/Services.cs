@@ -16,6 +16,7 @@ namespace VS_CUWSISMED
         IReadOnlyList<MedicalService> GetServices();
         IReadOnlyList<AvailableSlot> GetAvailableSlots(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForDoctor(int doctorId, DateTime date);
+        IReadOnlyList<Appointment> GetAllAppointmentsForDoctor(int doctorId, DateTime date);
         IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId);
         IReadOnlyList<Appointment> GetAllAppointmentsForPatient(int patientId);
         int GetPatientCount();
@@ -388,6 +389,14 @@ namespace VS_CUWSISMED
             }
 
             return result;
+        }
+
+        public IReadOnlyList<Appointment> GetAllAppointmentsForDoctor(int doctorId, DateTime date)
+        {
+            return appointments
+                .Where(a => a.DoctorId == doctorId && a.StartAt.Date == date.Date)
+                .OrderBy(a => a.StartAt)
+                .ToList();
         }
 
         public IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId)
@@ -901,6 +910,11 @@ namespace VS_CUWSISMED
         public IReadOnlyList<Appointment> GetAppointmentsForDoctor(int doctorId, DateTime date)
         {
             return memory.GetAppointmentsForDoctor(doctorId, date);
+        }
+
+        public IReadOnlyList<Appointment> GetAllAppointmentsForDoctor(int doctorId, DateTime date)
+        {
+            return memory.GetAllAppointmentsForDoctor(doctorId, date);
         }
 
         public IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId)

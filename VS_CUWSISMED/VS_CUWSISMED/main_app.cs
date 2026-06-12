@@ -79,6 +79,52 @@ namespace VS_CUWSISMED
             public DateTime StartAt { get; set; }
         }
 
+        private sealed class CalendarDoctorOption
+        {
+            public Doctor Doctor { get; set; }
+
+            public bool IsAll
+            {
+                get { return Doctor == null; }
+            }
+
+            public string Text
+            {
+                get { return IsAll ? "Wszyscy lekarze" : Doctor.DisplayName; }
+            }
+        }
+
+        private sealed class CalendarServiceOption
+        {
+            public MedicalService Service { get; set; }
+
+            public bool IsAll
+            {
+                get { return Service == null; }
+            }
+
+            public string Text
+            {
+                get { return IsAll ? "Wszystkie specjalizacje" : Service.Name + " - " + Service.Specialization; }
+            }
+        }
+
+        private sealed class CalendarStatusOption
+        {
+            public string Text { get; set; }
+            public string Key { get; set; }
+        }
+
+        private sealed class CalendarSlotRow
+        {
+            public DateTime StartAt { get; set; }
+            public Doctor Doctor { get; set; }
+            public MedicalService Service { get; set; }
+            public Appointment Appointment { get; set; }
+            public Patient Patient { get; set; }
+            public string StatusText { get; set; }
+        }
+
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
 
@@ -100,6 +146,7 @@ namespace VS_CUWSISMED
             ConfigureCurrentUser();
             LoadDoctorLists();
             LoadPatientBookingOptions();
+            LoadCalendarFilters();
             RefreshPatientCard(null);
             ShowPatientEmptyPanel("Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.");
             LoadCalendar();
@@ -386,6 +433,86 @@ namespace VS_CUWSISMED
             LoadCalendar();
         }
 
+        private void dgvCal_SelectionChanged(object sender, EventArgs e)
+        {
+            CalendarSlotRow row = GetSelectedCalendarRow();
+            ShowCalendarDetails(row);
+        }
+
+        private void btnCalendarOpenPatient_Click(object sender, EventArgs e)
+        {
+            CalendarSlotRow row = GetSelectedCalendarRow();
+            if (row == null || row.Patient == null)
+            {
+                ShowError("Wybierz wizytę z pacjentem.");
+                return;
+            }
+
+            ShowReceptionScreen();
+            SelectPatient(row.Patient, true);
+            ShowPatientPlannedPanel();
+        }
+
+        private void btnCalendarCancelAppointment_Click(object sender, EventArgs e)
+        {
+            CalendarSlotRow row = GetSelectedCalendarRow();
+            if (row == null || row.Appointment == null || row.Appointment.Status != AppointmentStatus.Reserved)
+            {
+                ShowError("Wybierz zarezerwowaną wizytę.");
+                return;
+            }
+
+            string reason = txtCalendarCancelReason.Text.Trim();
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                ShowError("Podaj powód anulowania wizyty.");
+                return;
+            }
+
+            bool lateCancellation = row.Appointment.StartAt > DateTime.Now
+                && row.Appointment.StartAt.Subtract(DateTime.Now).TotalHours < 12;
+
+            DialogResult result = MessageBox.Show(
+                "Czy anulować wizytę pacjenta "
+                + (row.Patient == null ? "-" : row.Patient.DisplayName)
+                + "?"
+                + Environment.NewLine
+                + (lateCancellation
+                    ? "Anulowanie mniej niż 12 godzin przed terminem doda ostrzeżenie."
+                    : "Anulowanie bez ostrzeżenia."),
+                "SISMED",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                dataStore.CancelAppointment(row.Appointment.Id, reason);
+                if (selectedPatient != null)
+                {
+                    selectedPatient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+                    RefreshPatientCard(selectedPatient);
+                    RefreshReservedAppointments();
+                    RefreshActivePatientSection();
+                }
+
+                txtCalendarCancelReason.Text = string.Empty;
+                LoadCalendar();
+                LoadSlots();
+                RefreshReceptionStats();
+                SetStatus("Anulowano wizytę z kalendarza.");
+                MessageBox.Show("Wizyta została anulowana.", "SISMED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
         private void btnCancel_Click(object sender, EventArgs e)
         {
             Appointment appointment = GetSelectedReservedAppointment();
@@ -547,10 +674,37 @@ namespace VS_CUWSISMED
             cmbDoctor.DataSource = new List<Doctor>(doctors);
             cmbDoctor.DisplayMember = "DisplayName";
             cmbDoctor.ValueMember = "Id";
+        }
 
-            cmbCalDoctor.DataSource = new List<Doctor>(doctors);
-            cmbCalDoctor.DisplayMember = "DisplayName";
-            cmbCalDoctor.ValueMember = "Id";
+        private void LoadCalendarFilters()
+        {
+            var doctorOptions = new List<CalendarDoctorOption>
+            {
+                new CalendarDoctorOption()
+            };
+            doctorOptions.AddRange(dataStore.GetDoctors().Select(d => new CalendarDoctorOption { Doctor = d }));
+            cmbCalDoctor.DisplayMember = "Text";
+            cmbCalDoctor.DataSource = doctorOptions;
+            cmbCalDoctor.SelectedIndex = 0;
+
+            var serviceOptions = new List<CalendarServiceOption>
+            {
+                new CalendarServiceOption()
+            };
+            serviceOptions.AddRange(dataStore.GetServices().Select(s => new CalendarServiceOption { Service = s }));
+            cmbCalService.DisplayMember = "Text";
+            cmbCalService.DataSource = serviceOptions;
+            cmbCalService.SelectedIndex = 0;
+
+            cmbCalStatus.DisplayMember = "Text";
+            cmbCalStatus.DataSource = new List<CalendarStatusOption>
+            {
+                new CalendarStatusOption { Text = "Wszystkie", Key = "all" },
+                new CalendarStatusOption { Text = "Zarezerwowana", Key = "reserved" },
+                new CalendarStatusOption { Text = "Anulowana", Key = "cancelled" },
+                new CalendarStatusOption { Text = "Historyczna/Zakończona", Key = "history" }
+            };
+            cmbCalStatus.SelectedIndex = 0;
         }
 
         private void LoadPatientBookingOptions()
@@ -600,26 +754,243 @@ namespace VS_CUWSISMED
 
         private void LoadCalendar()
         {
-            Doctor doctor = cmbCalDoctor.SelectedItem as Doctor;
             dgvCal.Rows.Clear();
+            ClearCalendarDetails();
 
-            if (doctor == null)
+            DateTime date = dtpCal.Value.Date;
+            CalendarDoctorOption doctorOption = cmbCalDoctor.SelectedItem as CalendarDoctorOption;
+            CalendarServiceOption serviceOption = cmbCalService.SelectedItem as CalendarServiceOption;
+            CalendarStatusOption statusOption = cmbCalStatus.SelectedItem as CalendarStatusOption;
+            string statusKey = statusOption == null ? "all" : statusOption.Key;
+
+            IEnumerable<Doctor> doctors = GetCalendarDoctors(doctorOption, serviceOption);
+            foreach (CalendarSlotRow row in BuildCalendarRows(doctors, date, serviceOption, statusKey))
             {
+                int rowIndex = dgvCal.Rows.Add(
+                    row.StartAt.ToString("HH:mm"),
+                    row.Doctor == null ? "-" : row.Doctor.DisplayName,
+                    row.Service == null
+                        ? (row.Doctor == null ? "-" : row.Doctor.Specialization)
+                        : row.Service.Name + " / " + row.Service.Specialization,
+                    row.StatusText,
+                    row.Patient == null ? "-" : row.Patient.DisplayName);
+                dgvCal.Rows[rowIndex].Tag = row;
+            }
+
+            dgvCal.ClearSelection();
+            SetStatus("Wczytano grafik wizyt: " + dgvCal.Rows.Count);
+        }
+
+        private IEnumerable<Doctor> GetCalendarDoctors(
+            CalendarDoctorOption doctorOption,
+            CalendarServiceOption serviceOption)
+        {
+            IEnumerable<Doctor> doctors = dataStore.GetDoctors();
+
+            if (doctorOption != null && !doctorOption.IsAll)
+            {
+                doctors = doctors.Where(d => d.Id == doctorOption.Doctor.Id);
+            }
+
+            if (serviceOption != null && !serviceOption.IsAll)
+            {
+                doctors = doctors.Where(d => string.Equals(
+                    d.Specialization,
+                    serviceOption.Service.Specialization,
+                    StringComparison.OrdinalIgnoreCase));
+            }
+
+            return doctors.OrderBy(d => d.LastName).ThenBy(d => d.FirstName).ToList();
+        }
+
+        private IEnumerable<CalendarSlotRow> BuildCalendarRows(
+            IEnumerable<Doctor> doctors,
+            DateTime date,
+            CalendarServiceOption serviceOption,
+            string statusKey)
+        {
+            var rows = new List<CalendarSlotRow>();
+            foreach (Doctor doctor in doctors)
+            {
+                MedicalService service = GetCalendarServiceForDoctor(doctor, serviceOption);
+                IReadOnlyList<Appointment> storedAppointments = dataStore.GetAllAppointmentsForDoctor(doctor.Id, date);
+                var reservedByStart = storedAppointments
+                    .Where(a => a.Status == AppointmentStatus.Reserved)
+                    .GroupBy(a => a.StartAt)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                if (statusKey == "all" || statusKey == "cancelled")
+                {
+                    foreach (Appointment cancelled in storedAppointments.Where(a => a.Status == AppointmentStatus.Cancelled))
+                    {
+                        rows.Add(CreateCalendarRow(cancelled, doctor, service, "Anulowana"));
+                    }
+                }
+
+                if (statusKey == "cancelled")
+                {
+                    continue;
+                }
+
+                DateTime start = date.AddHours(7);
+                DateTime end = date.AddHours(18);
+                while (start < end)
+                {
+                    Appointment appointment;
+                    if (reservedByStart.TryGetValue(start, out appointment))
+                    {
+                        string status = appointment.StartAt < DateTime.Now
+                            ? "Historyczna/Zakończona"
+                            : "Zarezerwowana";
+
+                        if (statusKey == "all"
+                            || statusKey == "reserved" && appointment.StartAt >= DateTime.Now
+                            || statusKey == "history" && appointment.StartAt < DateTime.Now)
+                        {
+                            rows.Add(CreateCalendarRow(appointment, doctor, service, status));
+                        }
+                    }
+                    else if (statusKey == "all")
+                    {
+                        rows.Add(new CalendarSlotRow
+                        {
+                            StartAt = start,
+                            Doctor = doctor,
+                            Service = service,
+                            StatusText = "Dostępny"
+                        });
+                    }
+
+                    start = start.AddMinutes(15);
+                }
+            }
+
+            return rows
+                .OrderBy(r => r.StartAt)
+                .ThenBy(r => r.Doctor == null ? string.Empty : r.Doctor.LastName)
+                .ThenBy(r => r.Doctor == null ? string.Empty : r.Doctor.FirstName)
+                .ToList();
+        }
+
+        private CalendarSlotRow CreateCalendarRow(
+            Appointment appointment,
+            Doctor doctor,
+            MedicalService service,
+            string status)
+        {
+            Patient patient = appointment.PatientId.HasValue
+                ? dataStore.GetPatient(appointment.PatientId.Value)
+                : null;
+
+            return new CalendarSlotRow
+            {
+                StartAt = appointment.StartAt,
+                Doctor = doctor,
+                Service = service,
+                Appointment = appointment,
+                Patient = patient,
+                StatusText = status
+            };
+        }
+
+        private MedicalService GetCalendarServiceForDoctor(Doctor doctor, CalendarServiceOption serviceOption)
+        {
+            if (serviceOption != null
+                && !serviceOption.IsAll
+                && string.Equals(serviceOption.Service.Specialization, doctor.Specialization, StringComparison.OrdinalIgnoreCase))
+            {
+                return serviceOption.Service;
+            }
+
+            return dataStore.GetServices()
+                .FirstOrDefault(s => string.Equals(s.Specialization, doctor.Specialization, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private CalendarSlotRow GetSelectedCalendarRow()
+        {
+            if (dgvCal.CurrentRow == null)
+            {
+                return null;
+            }
+
+            return dgvCal.CurrentRow.Tag as CalendarSlotRow;
+        }
+
+        private void ShowCalendarDetails(CalendarSlotRow row)
+        {
+            if (row == null)
+            {
+                ClearCalendarDetails();
                 return;
             }
 
-            foreach (Appointment appointment in dataStore.GetAppointmentsForDoctor(doctor.Id, dtpCal.Value.Date))
+            if (row.Appointment == null)
             {
-                Patient patient = appointment.PatientId.HasValue
-                    ? dataStore.GetPatient(appointment.PatientId.Value)
-                    : null;
-
-                int rowIndex = dgvCal.Rows.Add(
-                    appointment.StartAt.ToString("HH:mm"),
-                    patient == null ? string.Empty : patient.DisplayName,
-                    appointment.StatusText);
-                dgvCal.Rows[rowIndex].Tag = appointment;
+                lblCalendarDetails.Text =
+                    "Termin dostępny"
+                    + Environment.NewLine
+                    + "Data i godzina: " + row.StartAt.ToString("dd.MM.yyyy HH:mm")
+                    + Environment.NewLine
+                    + "Lekarz: " + (row.Doctor == null ? "-" : row.Doctor.DisplayName)
+                    + Environment.NewLine
+                    + "Usługa/specjalizacja: " + GetCalendarServiceText(row)
+                    + Environment.NewLine
+                    + "Status: Dostępny";
+                btnCalendarOpenPatient.Enabled = false;
+                btnCalendarCancelAppointment.Enabled = false;
+                return;
             }
+
+            Patient patient = row.Patient;
+            lblCalendarDetails.Text =
+                "Pacjent: " + (patient == null ? "-" : patient.DisplayName)
+                + Environment.NewLine
+                + "PESEL: " + (patient == null ? "-" : Safe(patient.Pesel))
+                + Environment.NewLine
+                + "Telefon: " + (patient == null ? "-" : Safe(patient.Phone))
+                + Environment.NewLine
+                + "E-mail: " + (patient == null ? "-" : Safe(patient.Email))
+                + Environment.NewLine
+                + "Lekarz: " + (row.Doctor == null ? "-" : row.Doctor.DisplayName)
+                + Environment.NewLine
+                + "Usługa/specjalizacja: " + GetCalendarServiceText(row)
+                + Environment.NewLine
+                + "Termin: " + row.StartAt.ToString("dd.MM.yyyy HH:mm")
+                + Environment.NewLine
+                + "Status: " + row.StatusText
+                + Environment.NewLine
+                + "Notatki: " + Safe(row.Appointment.Notes)
+                + (string.IsNullOrWhiteSpace(row.Appointment.CancelReason)
+                    ? string.Empty
+                    : Environment.NewLine + "Powód anulowania: " + row.Appointment.CancelReason);
+
+            bool canAct = row.Appointment.Status == AppointmentStatus.Reserved
+                && row.Appointment.StartAt >= DateTime.Now;
+            btnCalendarOpenPatient.Enabled = patient != null;
+            btnCalendarCancelAppointment.Enabled = canAct;
+        }
+
+        private void ClearCalendarDetails()
+        {
+            lblCalendarDetails.Text = "Wybierz zarezerwowany slot, aby zobaczyć szczegóły.";
+            txtCalendarCancelReason.Text = string.Empty;
+            btnCalendarOpenPatient.Enabled = false;
+            btnCalendarCancelAppointment.Enabled = false;
+        }
+
+        private static string GetCalendarServiceText(CalendarSlotRow row)
+        {
+            if (row == null)
+            {
+                return "-";
+            }
+
+            if (row.Service != null)
+            {
+                return row.Service.Name + " / " + row.Service.Specialization;
+            }
+
+            return row.Doctor == null ? "-" : row.Doctor.Specialization;
         }
 
         private void RefreshReservedAppointments()

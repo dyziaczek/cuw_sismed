@@ -758,26 +758,92 @@ namespace VS_CUWSISMED
         {
             pnlCalendarScreen = CreateScreenPanel();
 
-            pnlCalTop = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = card, Padding = new Padding(18) };
+            pnlCalTop = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = card, Padding = new Padding(18) };
             lblCalDoctor = CreateInlineLabel("Lekarz:", 18, 24, muted, labelFont);
             cmbCalDoctor = CreateComboBox(82, 18, 280);
-            lblCalDate = CreateInlineLabel("Data:", 386, 24, muted, labelFont);
-            dtpCal = CreateDatePicker(440, 18);
-            btnLoadCal = CreateActionButton("Pokaż grafik", 620, 18, 160, magenta);
+            lblCalDate = CreateInlineLabel("Data:", 382, 24, muted, labelFont);
+            dtpCal = CreateDatePicker(436, 18);
+            lblCalService = CreateInlineLabel("Usługa:", 18, 62, muted, labelFont);
+            cmbCalService = CreateComboBox(82, 56, 280);
+            lblCalStatus = CreateInlineLabel("Status:", 382, 62, muted, labelFont);
+            cmbCalStatus = CreateComboBox(436, 56, 180);
+            btnLoadCal = CreateActionButton("Pokaż grafik", 642, 36, 160, magenta);
             btnLoadCal.Click += btnLoadCal_Click;
             pnlCalTop.Controls.AddRange(new Control[]
             {
-                lblCalDoctor, cmbCalDoctor, lblCalDate, dtpCal, btnLoadCal
+                lblCalDoctor, cmbCalDoctor, lblCalDate, dtpCal,
+                lblCalService, cmbCalService, lblCalStatus, cmbCalStatus, btnLoadCal
             });
+
+            pnlCalendarDetails = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 330,
+                BackColor = card,
+                Padding = new Padding(18)
+            };
+            lblCalendarDetailsTitle = new Label
+            {
+                Text = "Szczegóły wizyty",
+                Dock = DockStyle.Top,
+                Height = 34,
+                Font = SismedTheme.Font(14f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy
+            };
+            lblCalendarDetails = new Label
+            {
+                Text = "Wybierz zarezerwowany slot, aby zobaczyć szczegóły.",
+                Dock = DockStyle.Top,
+                Height = 260,
+                Font = normalFont,
+                ForeColor = text
+            };
+            txtCalendarCancelReason = new TextBox
+            {
+                Dock = DockStyle.Top,
+                Height = 26,
+                Font = normalFont,
+                ForeColor = text,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            btnCalendarOpenPatient = CreateActionButton("Przejdź do pacjenta", 0, 0, 210, blue);
+            btnCalendarOpenPatient.Dock = DockStyle.Top;
+            btnCalendarOpenPatient.Height = 36;
+            btnCalendarOpenPatient.Enabled = false;
+            btnCalendarOpenPatient.Click += btnCalendarOpenPatient_Click;
+            btnCalendarCancelAppointment = CreateActionButton("Anuluj wizytę", 0, 0, 210, SismedTheme.Danger);
+            btnCalendarCancelAppointment.Dock = DockStyle.Top;
+            btnCalendarCancelAppointment.Height = 36;
+            btnCalendarCancelAppointment.Enabled = false;
+            btnCalendarCancelAppointment.Click += btnCalendarCancelAppointment_Click;
+            var lblCalendarCancelReason = new Label
+            {
+                Text = "Powód anulowania",
+                Dock = DockStyle.Top,
+                Height = 24,
+                Font = labelFont,
+                ForeColor = muted
+            };
+            pnlCalendarDetails.Controls.Add(btnCalendarCancelAppointment);
+            pnlCalendarDetails.Controls.Add(btnCalendarOpenPatient);
+            pnlCalendarDetails.Controls.Add(txtCalendarCancelReason);
+            pnlCalendarDetails.Controls.Add(lblCalendarCancelReason);
+            pnlCalendarDetails.Controls.Add(lblCalendarDetails);
+            pnlCalendarDetails.Controls.Add(lblCalendarDetailsTitle);
 
             dgvCal = CreateGrid();
             dgvCal.Dock = DockStyle.Fill;
-            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calTime", HeaderText = "Godzina", Width = 100 });
-            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calPatient", HeaderText = "Pacjent", Width = 300 });
-            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calStatus", HeaderText = "Status", Width = 160 });
+            dgvCal.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calTime", HeaderText = "Godzina", Width = 90 });
+            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calDoctor", HeaderText = "Lekarz", Width = 180 });
+            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calService", HeaderText = "Specjalizacja/usługa", Width = 220 });
+            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calStatus", HeaderText = "Status", Width = 130 });
+            dgvCal.Columns.Add(new DataGridViewTextBoxColumn { Name = "calPatient", HeaderText = "Pacjent", Width = 180 });
+            dgvCal.SelectionChanged += dgvCal_SelectionChanged;
             dgvCal.CellFormatting += DgvCal_CellFormatting;
 
             pnlCalendarScreen.Controls.Add(dgvCal);
+            pnlCalendarScreen.Controls.Add(pnlCalendarDetails);
             pnlCalendarScreen.Controls.Add(pnlCalTop);
         }
 
@@ -1110,13 +1176,21 @@ namespace VS_CUWSISMED
                 ? string.Empty
                 : row.Cells["calStatus"].Value.ToString();
 
-            if (status == "Wolny")
+            if (status == "Dostępny")
             {
                 row.DefaultCellStyle.ForeColor = SismedTheme.Success;
             }
-            else if (status == "Zajęty")
+            else if (status == "Zarezerwowana")
             {
                 row.DefaultCellStyle.ForeColor = SismedTheme.Danger;
+            }
+            else if (status == "Anulowana")
+            {
+                row.DefaultCellStyle.ForeColor = SismedTheme.Muted;
+            }
+            else if (status == "Historyczna/Zakończona")
+            {
+                row.DefaultCellStyle.ForeColor = SismedTheme.Warning;
             }
         }
 
@@ -1126,7 +1200,7 @@ namespace VS_CUWSISMED
         private Panel pnlPatientActionBody, pnlPatientEmptyPanel, pnlPatientResultsPanel, pnlPatientNotesPanel;
         private Panel pnlPatientPlannedPanel, pnlPatientHistoryPanel, pnlPatientBookingPanel, pnlPatientBookingTop;
         private Panel pnlPatientPlannedDetails;
-        private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails;
+        private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails, pnlCalendarDetails;
         private TableLayoutPanel pnlDashboardCards;
         private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost;
         private PictureBox picLogo;
@@ -1139,22 +1213,24 @@ namespace VS_CUWSISMED
         private Label lblPatientBookingService, lblPatientBookingDoctor, lblPatientBookingRange;
         private Label lblPlannedAppointmentDetails, lblPlannedAppointmentTimeLeft;
         private Label lblTodayVisitsValue, lblPlannedVisitsValue, lblPatientsValue;
-        private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate;
+        private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate, lblCalService, lblCalStatus;
+        private Label lblCalendarDetailsTitle, lblCalendarDetails;
         private Label lblSwapResult;
         private Label lblEmployeeName, lblEmployeePesel, lblEmployeeBirthDate, lblEmployeeLogin;
         private Label lblEmployeeRole, lblEmployeeStatus, lblEmployeeDoctor, lblEmployeeSpecialization;
         private Guna2TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
         private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch;
-        private TextBox txtPatientNote, txtCancelAppointmentReason;
+        private TextBox txtPatientNote, txtCancelAppointmentReason, txtCalendarCancelReason;
         private Guna2Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
         private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
         private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
+        private Guna2Button btnCalendarOpenPatient, btnCalendarCancelAppointment;
         private Guna2Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
         private Guna2Button btnPatientBookingNext, btnPatientBookingSearch;
         private Guna2Button btnCancelPatientAppointment, btnSwapPatientAppointment;
         private Guna2Button btnAddPatientNote, btnDeletePatientNote;
         private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
-        private ComboBox cmbDoctor, cmbCalDoctor;
+        private ComboBox cmbDoctor, cmbCalDoctor, cmbCalService, cmbCalStatus;
         private ComboBox cmbPatientBookingService, cmbPatientBookingDoctor, cmbPatientBookingRange;
         private Guna2DateTimePicker dtpBook, dtpCal;
         private DataGridView dgvSlots, dgvCal, dgvReserved, dgvEmployees;
