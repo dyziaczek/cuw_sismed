@@ -28,6 +28,10 @@ namespace VS_CUWSISMED
         PatientNote AddPatientNote(int patientId, string text, string createdByEmployee);
         void DeletePatientNote(int noteId);
         IReadOnlyList<PatientWarning> GetPatientWarnings(int patientId);
+        IReadOnlyList<SismedDocument> SearchDocuments(string query, DocumentStatus? status);
+        SismedDocument AddDocument(SismedDocument document);
+        SismedDocument UpdateDocument(SismedDocument document, string lastEditedBy);
+        void ArchiveDocument(int documentId, string archivedBy);
         Doctor GetDoctor(int doctorId);
         Appointment ReserveAppointment(int doctorId, int patientId, DateTime startAt);
         void CancelAppointment(int appointmentId, string reason);
@@ -321,11 +325,13 @@ namespace VS_CUWSISMED
         private readonly List<Employee> employees;
         private readonly List<PatientNote> patientNotes;
         private readonly List<PatientWarning> patientWarnings;
+        private readonly List<SismedDocument> documents;
         private int nextPatientId;
         private int nextAppointmentId;
         private int nextEmployeeId;
         private int nextNoteId;
         private int nextWarningId;
+        private int nextDocumentId;
 
         public InMemoryClinicDataStore(ClinicSeedData seed)
         {
@@ -337,11 +343,13 @@ namespace VS_CUWSISMED
             employees = seed.Employees;
             patientNotes = seed.PatientNotes;
             patientWarnings = seed.PatientWarnings;
+            documents = seed.Documents;
             nextPatientId = NextId(patients.Select(p => p.Id));
             nextAppointmentId = NextId(appointments.Select(a => a.Id));
             nextEmployeeId = NextId(employees.Select(e => e.Id));
             nextNoteId = NextId(patientNotes.Select(n => n.Id));
             nextWarningId = NextId(patientWarnings.Select(w => w.Id));
+            nextDocumentId = NextId(documents.Select(d => d.Id));
         }
 
         public IReadOnlyList<Doctor> GetDoctors()
@@ -567,6 +575,99 @@ namespace VS_CUWSISMED
                 .Where(w => w.PatientId == patientId)
                 .OrderByDescending(w => w.CreatedAt)
                 .ToList();
+        }
+
+        public IReadOnlyList<SismedDocument> SearchDocuments(string query, DocumentStatus? status)
+        {
+            string normalized = Normalize(query);
+            IEnumerable<SismedDocument> result = documents;
+
+            if (status.HasValue)
+            {
+                result = result.Where(d => d.Status == status.Value);
+            }
+
+            if (!string.IsNullOrEmpty(normalized))
+            {
+                result = result.Where(d =>
+                    Normalize(d.Title).Contains(normalized)
+                    || Normalize(d.Category).Contains(normalized)
+                    || Normalize(d.Content).Contains(normalized)
+                    || Normalize(d.Author).Contains(normalized)
+                    || Normalize(d.LastEditedBy).Contains(normalized));
+            }
+
+            return result
+                .OrderByDescending(d => d.UpdatedAt)
+                .ThenBy(d => d.Title)
+                .ToList();
+        }
+
+        public SismedDocument AddDocument(SismedDocument document)
+        {
+            if (document == null)
+            {
+                throw new ArgumentNullException("document");
+            }
+
+            ValidateDocument(document);
+
+            DateTime now = DateTime.Now;
+            document.Id = document.Id > 0 ? document.Id : nextDocumentId++;
+            document.Title = document.Title.Trim();
+            document.Category = document.Category.Trim();
+            document.Content = document.Content.Trim();
+            document.Author = string.IsNullOrWhiteSpace(document.Author)
+                ? "Pracownik"
+                : document.Author.Trim();
+            document.LastEditedBy = string.IsNullOrWhiteSpace(document.LastEditedBy)
+                ? document.Author
+                : document.LastEditedBy.Trim();
+            document.CreatedAt = document.CreatedAt == DateTime.MinValue ? now : document.CreatedAt;
+            document.UpdatedAt = document.UpdatedAt == DateTime.MinValue ? document.CreatedAt : document.UpdatedAt;
+            documents.Add(document);
+            return document;
+        }
+
+        public SismedDocument UpdateDocument(SismedDocument document, string lastEditedBy)
+        {
+            if (document == null)
+            {
+                throw new ArgumentNullException("document");
+            }
+
+            ValidateDocument(document);
+
+            SismedDocument existing = documents.FirstOrDefault(d => d.Id == document.Id);
+            if (existing == null)
+            {
+                throw new InvalidOperationException("Nie znaleziono dokumentu.");
+            }
+
+            existing.Title = document.Title.Trim();
+            existing.Category = document.Category.Trim();
+            existing.Content = document.Content.Trim();
+            existing.Status = document.Status;
+            existing.LastEditedBy = string.IsNullOrWhiteSpace(lastEditedBy)
+                ? existing.LastEditedBy
+                : lastEditedBy.Trim();
+            existing.UpdatedAt = DateTime.Now;
+            return existing;
+        }
+
+        public void ArchiveDocument(int documentId, string archivedBy)
+        {
+            SismedDocument document = documents.FirstOrDefault(d => d.Id == documentId);
+            if (document == null)
+            {
+                throw new InvalidOperationException("Nie znaleziono dokumentu.");
+            }
+
+            document.Status = DocumentStatus.Archived;
+            document.LastEditedBy = string.IsNullOrWhiteSpace(archivedBy)
+                ? document.LastEditedBy
+                : archivedBy.Trim();
+            document.UpdatedAt = DateTime.Now;
         }
 
         public Doctor GetDoctor(int doctorId)
@@ -845,6 +946,24 @@ namespace VS_CUWSISMED
             });
         }
 
+        private static void ValidateDocument(SismedDocument document)
+        {
+            if (string.IsNullOrWhiteSpace(document.Title))
+            {
+                throw new InvalidOperationException("Podaj tytul dokumentu.");
+            }
+
+            if (string.IsNullOrWhiteSpace(document.Category))
+            {
+                throw new InvalidOperationException("Podaj kategorie dokumentu.");
+            }
+
+            if (string.IsNullOrWhiteSpace(document.Content))
+            {
+                throw new InvalidOperationException("Tresc dokumentu nie moze byc pusta.");
+            }
+        }
+
         private static void AppendSwapNote(
             Appointment appointment,
             Patient previousPatient,
@@ -989,6 +1108,36 @@ namespace VS_CUWSISMED
             return memory.GetPatientWarnings(patientId);
         }
 
+        public IReadOnlyList<SismedDocument> SearchDocuments(string query, DocumentStatus? status)
+        {
+            return memory.SearchDocuments(query, status);
+        }
+
+        public SismedDocument AddDocument(SismedDocument document)
+        {
+            SismedDocument saved = memory.AddDocument(document);
+            InsertDocument(saved);
+            return saved;
+        }
+
+        public SismedDocument UpdateDocument(SismedDocument document, string lastEditedBy)
+        {
+            SismedDocument saved = memory.UpdateDocument(document, lastEditedBy);
+            InsertDocument(saved);
+            return saved;
+        }
+
+        public void ArchiveDocument(int documentId, string archivedBy)
+        {
+            memory.ArchiveDocument(documentId, archivedBy);
+            SismedDocument document = memory.SearchDocuments(string.Empty, null)
+                .FirstOrDefault(d => d.Id == documentId);
+            if (document != null)
+            {
+                InsertDocument(document);
+            }
+        }
+
         public Doctor GetDoctor(int doctorId)
         {
             return memory.GetDoctor(doctorId);
@@ -1116,6 +1265,11 @@ namespace VS_CUWSISMED
             database.ExecuteNonQuery(
                 "CREATE TABLE IF NOT EXISTS patient_warnings (" +
                 "id INTEGER PRIMARY KEY, patient_id INTEGER NOT NULL, created_at TEXT NOT NULL, reason TEXT NOT NULL)");
+            database.ExecuteNonQuery(
+                "CREATE TABLE IF NOT EXISTS documents (" +
+                "id INTEGER PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, content TEXT NOT NULL, " +
+                "author TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, " +
+                "status TEXT NOT NULL, last_edited_by TEXT)");
 
             EnsureColumn("patients", "birth_date", "TEXT");
             EnsureColumn("patients", "notes", "TEXT");
@@ -1126,11 +1280,20 @@ namespace VS_CUWSISMED
             EnsureColumn("employees", "is_doctor", "INTEGER NOT NULL DEFAULT 0");
             EnsureColumn("employees", "specialization", "TEXT");
             EnsureColumn("patient_notes", "created_by_employee", "TEXT");
+            EnsureColumn("documents", "title", "TEXT NOT NULL DEFAULT ''");
+            EnsureColumn("documents", "category", "TEXT NOT NULL DEFAULT ''");
+            EnsureColumn("documents", "content", "TEXT NOT NULL DEFAULT ''");
+            EnsureColumn("documents", "author", "TEXT NOT NULL DEFAULT ''");
+            EnsureColumn("documents", "created_at", "TEXT");
+            EnsureColumn("documents", "updated_at", "TEXT");
+            EnsureColumn("documents", "status", "TEXT NOT NULL DEFAULT 'Active'");
+            EnsureColumn("documents", "last_edited_by", "TEXT");
 
             database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_patients_search ON patients(pesel, first_name, last_name, birth_date, phone, email)");
             database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_appointments_doctor_date ON appointments(doctor_id, start_at, status)");
             database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_appointments_patient ON appointments(patient_id, start_at, status)");
             database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_employees_search ON employees(first_name, last_name, pesel, birth_date, login)");
+            database.ExecuteNonQuery("CREATE INDEX IF NOT EXISTS idx_documents_search ON documents(title, category, author, status)");
         }
 
         private void EnsureColumn(string tableName, string columnName, string type)
@@ -1205,6 +1368,14 @@ namespace VS_CUWSISMED
                 }
             }
 
+            if (database.Count("documents") == 0)
+            {
+                foreach (SismedDocument document in seed.Documents)
+                {
+                    InsertDocument(document);
+                }
+            }
+
             foreach (Employee employee in seed.Employees)
             {
                 if (!EmployeeLoginExists(employee.Login)
@@ -1226,6 +1397,7 @@ namespace VS_CUWSISMED
             data.Employees.AddRange(database.Query("SELECT id, login, first_name, last_name, pesel, birth_date, display_name, role, password_hash, password_salt, created_at, is_active, is_doctor, specialization FROM employees").Select(ReadEmployee));
             data.PatientNotes.AddRange(database.Query("SELECT id, patient_id, created_at, created_by_employee, note_text FROM patient_notes").Select(ReadPatientNote));
             data.PatientWarnings.AddRange(database.Query("SELECT id, patient_id, created_at, reason FROM patient_warnings").Select(ReadPatientWarning));
+            data.Documents.AddRange(database.Query("SELECT id, title, category, content, author, created_at, updated_at, status, last_edited_by FROM documents").Select(ReadDocument));
             return data;
         }
 
@@ -1354,6 +1526,22 @@ namespace VS_CUWSISMED
                 SqlValue.Text(warning.Reason));
         }
 
+        private void InsertDocument(SismedDocument document)
+        {
+            database.ExecuteNonQuery(
+                "INSERT OR REPLACE INTO documents(id, title, category, content, author, created_at, updated_at, status, last_edited_by) " +
+                "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                SqlValue.Int(document.Id),
+                SqlValue.Text(document.Title),
+                SqlValue.Text(document.Category),
+                SqlValue.Text(document.Content),
+                SqlValue.Text(document.Author),
+                SqlValue.Text(ToDbDateTime(document.CreatedAt)),
+                SqlValue.Text(ToDbDateTime(document.UpdatedAt)),
+                SqlValue.Text(document.Status.ToString()),
+                SqlValue.Text(document.LastEditedBy));
+        }
+
         private static Doctor ReadDoctor(Dictionary<string, object> row)
         {
             return new Doctor
@@ -1468,6 +1656,33 @@ namespace VS_CUWSISMED
                 PatientId = RowInt(row, "patient_id"),
                 CreatedAt = RowDateTime(row, "created_at") ?? DateTime.Now,
                 Reason = RowText(row, "reason")
+            };
+        }
+
+        private static SismedDocument ReadDocument(Dictionary<string, object> row)
+        {
+            DocumentStatus status;
+            string statusText = RowText(row, "status");
+            if (string.Equals(statusText, "Archiwalny", StringComparison.OrdinalIgnoreCase))
+            {
+                status = DocumentStatus.Archived;
+            }
+            else if (!Enum.TryParse(statusText, out status))
+            {
+                status = DocumentStatus.Active;
+            }
+
+            return new SismedDocument
+            {
+                Id = RowInt(row, "id"),
+                Title = RowText(row, "title"),
+                Category = RowText(row, "category"),
+                Content = RowText(row, "content"),
+                Author = RowText(row, "author"),
+                CreatedAt = RowDateTime(row, "created_at") ?? DateTime.Now,
+                UpdatedAt = RowDateTime(row, "updated_at") ?? DateTime.Now,
+                Status = status,
+                LastEditedBy = RowText(row, "last_edited_by")
             };
         }
 

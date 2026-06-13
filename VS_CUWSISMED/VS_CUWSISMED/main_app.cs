@@ -15,6 +15,7 @@ namespace VS_CUWSISMED
         private Patient selectedPatient;
         private Patient swapPatient;
         private Employee selectedEmployee;
+        private SismedDocument selectedDocument;
         private string lastStatus;
         private string activePatientSection;
 
@@ -125,6 +126,12 @@ namespace VS_CUWSISMED
             public string StatusText { get; set; }
         }
 
+        private sealed class DocumentStatusFilterOption
+        {
+            public string Text { get; set; }
+            public DocumentStatus? Status { get; set; }
+        }
+
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
 
@@ -147,6 +154,8 @@ namespace VS_CUWSISMED
             LoadDoctorLists();
             LoadPatientBookingOptions();
             LoadCalendarFilters();
+            LoadDocumentStatusFilter();
+            LoadDocumentList();
             RefreshPatientCard(null);
             ShowPatientEmptyPanel("Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.");
             LoadCalendar();
@@ -169,6 +178,7 @@ namespace VS_CUWSISMED
         {
             btnAddEmployee.Visible = IsCurrentUserAdministrator;
             btnDeactivateEmployee.Visible = IsCurrentUserAdministrator;
+            btnArchiveDocument.Visible = IsCurrentUserAdministrator;
             lblPersonnelAccess.Text = IsCurrentUserAdministrator
                 ? string.Empty
                 : "Tryb podgladu: tylko administrator moze dodawac i dezaktywowac konta.";
@@ -198,6 +208,7 @@ namespace VS_CUWSISMED
         private void btnNavDocuments_Click(object sender, EventArgs e)
         {
             ShowScreen(pnlDocumentsScreen, "DOKUMENTY");
+            LoadDocumentList();
         }
 
         private void btnNavPersonnel_Click(object sender, EventArgs e)
@@ -656,6 +667,128 @@ namespace VS_CUWSISMED
             RefreshEmployeeDetails(selectedEmployee);
         }
 
+        private void btnDocumentSearch_Click(object sender, EventArgs e)
+        {
+            LoadDocumentList();
+        }
+
+        private void btnDocumentClear_Click(object sender, EventArgs e)
+        {
+            txtDocumentSearch.Text = string.Empty;
+            if (cmbDocumentStatus.Items.Count > 0)
+            {
+                cmbDocumentStatus.SelectedIndex = 0;
+            }
+
+            LoadDocumentList();
+        }
+
+        private void btnAddDocument_Click(object sender, EventArgs e)
+        {
+            using (var dialog = new DocumentDialog(null, IsCurrentUserAdministrator))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                try
+                {
+                    SismedDocument document = dialog.Document;
+                    document.Author = GetCurrentEmployeeName();
+                    document.LastEditedBy = GetCurrentEmployeeName();
+
+                    SismedDocument saved = dataStore.AddDocument(document);
+                    LoadDocumentList();
+                    SelectDocument(saved);
+                    SetStatus("Dodano dokument: " + saved.Title);
+                }
+                catch (Exception ex)
+                {
+                    ShowError(ex.Message);
+                }
+            }
+        }
+
+        private void btnEditDocument_Click(object sender, EventArgs e)
+        {
+            SismedDocument document = GetSelectedDocument();
+            if (document == null)
+            {
+                ShowError("Wybierz dokument do edycji.");
+                return;
+            }
+
+            using (var dialog = new DocumentDialog(document, IsCurrentUserAdministrator))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                try
+                {
+                    SismedDocument saved = dataStore.UpdateDocument(dialog.Document, GetCurrentEmployeeName());
+                    LoadDocumentList();
+                    SelectDocument(saved);
+                    SetStatus("Zapisano dokument: " + saved.Title);
+                }
+                catch (Exception ex)
+                {
+                    ShowError(ex.Message);
+                }
+            }
+        }
+
+        private void btnArchiveDocument_Click(object sender, EventArgs e)
+        {
+            if (!RequireAdministrator())
+            {
+                return;
+            }
+
+            SismedDocument document = GetSelectedDocument();
+            if (document == null)
+            {
+                ShowError("Wybierz dokument do archiwizacji.");
+                return;
+            }
+
+            if (document.Status == DocumentStatus.Archived)
+            {
+                ShowError("Dokument jest już archiwalny.");
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                "Czy przenieść dokument do archiwum?" + Environment.NewLine + document.Title,
+                "SISMED",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes)
+            {
+                return;
+            }
+
+            try
+            {
+                dataStore.ArchiveDocument(document.Id, GetCurrentEmployeeName());
+                LoadDocumentList();
+                SetStatus("Dokument został zarchiwizowany.");
+            }
+            catch (Exception ex)
+            {
+                ShowError(ex.Message);
+            }
+        }
+
+        private void dgvDocuments_SelectionChanged(object sender, EventArgs e)
+        {
+            selectedDocument = GetSelectedDocument();
+            RefreshDocumentDetails(selectedDocument);
+        }
+
         private bool RequireAdministrator()
         {
             if (IsCurrentUserAdministrator)
@@ -705,6 +838,116 @@ namespace VS_CUWSISMED
                 new CalendarStatusOption { Text = "Historyczna/Zakończona", Key = "history" }
             };
             cmbCalStatus.SelectedIndex = 0;
+        }
+
+        private void LoadDocumentStatusFilter()
+        {
+            cmbDocumentStatus.DisplayMember = "Text";
+            cmbDocumentStatus.DataSource = new List<DocumentStatusFilterOption>
+            {
+                new DocumentStatusFilterOption { Text = "Wszystkie", Status = null },
+                new DocumentStatusFilterOption { Text = "Aktywne", Status = DocumentStatus.Active },
+                new DocumentStatusFilterOption { Text = "Archiwalne", Status = DocumentStatus.Archived }
+            };
+            cmbDocumentStatus.SelectedIndex = 0;
+        }
+
+        private void LoadDocumentList()
+        {
+            if (dgvDocuments == null)
+            {
+                return;
+            }
+
+            DocumentStatusFilterOption statusOption = cmbDocumentStatus.SelectedItem as DocumentStatusFilterOption;
+            DocumentStatus? status = statusOption == null ? null : statusOption.Status;
+            string query = txtDocumentSearch == null ? string.Empty : txtDocumentSearch.Text;
+
+            IReadOnlyList<SismedDocument> documents = dataStore.SearchDocuments(query, status);
+            dgvDocuments.Rows.Clear();
+            RefreshDocumentDetails(null);
+
+            foreach (SismedDocument document in documents)
+            {
+                int rowIndex = dgvDocuments.Rows.Add(
+                    Safe(document.Title),
+                    Safe(document.Category),
+                    Safe(document.Author),
+                    FormatDocumentDate(document.CreatedAt),
+                    FormatDocumentDate(document.UpdatedAt),
+                    document.StatusText);
+                dgvDocuments.Rows[rowIndex].Tag = document;
+            }
+
+            if (dgvDocuments.Rows.Count > 0)
+            {
+                dgvDocuments.Rows[0].Selected = true;
+                dgvDocuments.CurrentCell = dgvDocuments.Rows[0].Cells[0];
+            }
+
+            SetStatus("Wczytano dokumenty: " + documents.Count);
+        }
+
+        private void SelectDocument(SismedDocument document)
+        {
+            if (document == null)
+            {
+                return;
+            }
+
+            foreach (DataGridViewRow row in dgvDocuments.Rows)
+            {
+                SismedDocument rowDocument = row.Tag as SismedDocument;
+                if (rowDocument != null && rowDocument.Id == document.Id)
+                {
+                    row.Selected = true;
+                    dgvDocuments.CurrentCell = row.Cells[0];
+                    RefreshDocumentDetails(rowDocument);
+                    return;
+                }
+            }
+        }
+
+        private SismedDocument GetSelectedDocument()
+        {
+            if (dgvDocuments == null || dgvDocuments.CurrentRow == null)
+            {
+                return null;
+            }
+
+            return dgvDocuments.CurrentRow.Tag as SismedDocument;
+        }
+
+        private void RefreshDocumentDetails(SismedDocument document)
+        {
+            selectedDocument = document;
+
+            if (document == null)
+            {
+                lblDocumentDetailsTitle.Text = "Wybierz dokument";
+                lblDocumentDetailsMeta.Text = "Brak wybranego dokumentu.";
+                txtDocumentDetailsContent.Text = string.Empty;
+                btnEditDocument.Enabled = false;
+                btnArchiveDocument.Enabled = false;
+                return;
+            }
+
+            lblDocumentDetailsTitle.Text = Safe(document.Title);
+            lblDocumentDetailsMeta.Text =
+                "Kategoria: " + Safe(document.Category)
+                + Environment.NewLine
+                + "Autor: " + Safe(document.Author)
+                + Environment.NewLine
+                + "Utworzono: " + FormatDocumentDate(document.CreatedAt)
+                + Environment.NewLine
+                + "Modyfikacja: " + FormatDocumentDate(document.UpdatedAt)
+                + Environment.NewLine
+                + "Status: " + document.StatusText
+                + Environment.NewLine
+                + "Ostatnio edytował: " + Safe(document.LastEditedBy);
+            txtDocumentDetailsContent.Text = document.Content ?? string.Empty;
+            btnEditDocument.Enabled = true;
+            btnArchiveDocument.Enabled = IsCurrentUserAdministrator && document.Status != DocumentStatus.Archived;
         }
 
         private void LoadPatientBookingOptions()
@@ -1922,6 +2165,11 @@ namespace VS_CUWSISMED
             return string.IsNullOrWhiteSpace(currentEmployee.FullName)
                 ? Safe(currentEmployee.Login)
                 : currentEmployee.FullName;
+        }
+
+        private static string FormatDocumentDate(DateTime date)
+        {
+            return date == DateTime.MinValue ? "-" : date.ToString("dd.MM.yyyy HH:mm");
         }
 
         private void RefreshPatientCard(Patient patient)

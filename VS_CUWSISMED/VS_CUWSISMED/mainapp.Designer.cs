@@ -856,31 +856,162 @@ namespace VS_CUWSISMED
             Font normalFont)
         {
             pnlDocumentsScreen = CreateScreenPanel();
-            var panel = new Panel
+
+            var documentsRoot = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                BackColor = card,
-                Padding = new Padding(36)
+                ColumnCount = 2,
+                RowCount = 3,
+                BackColor = SismedTheme.Surface
             };
-            var label = new Label
+            documentsRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 66F));
+            documentsRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
+            documentsRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
+            documentsRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
+            documentsRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var hero = new Guna2Panel
             {
-                Text = "Moduł dokumentów jest przygotowany w głównej nawigacji.",
-                Font = SismedTheme.Font(16f, FontStyle.Bold),
-                ForeColor = text,
-                Dock = DockStyle.Top,
-                Height = 52
+                Dock = DockStyle.Fill,
+                FillColor = card,
+                BorderColor = border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Margin = new Padding(0, 0, 0, 12),
+                Padding = new Padding(24)
             };
-            var sub = new Label
+            var heroAccent = new Panel
             {
-                Text = "W następnej iteracji można podłączyć formularze zgód, wydruki i dokumentację wizyt.",
+                BackColor = magenta,
+                Dock = DockStyle.Left,
+                Width = 5
+            };
+            var heroTitle = new Label
+            {
+                Text = "Dokumenty",
+                Font = SismedTheme.Font(19f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy,
+                Location = new Point(24, 18),
+                Size = new Size(320, 34)
+            };
+            var heroSubtitle = new Label
+            {
+                Text = "Wewnętrzna dokumentacja SISMED: procedury, notatki operacyjne i materiały dla pracowników.",
                 Font = normalFont,
                 ForeColor = muted,
-                Dock = DockStyle.Top,
-                Height = 32
+                Location = new Point(24, 54),
+                Size = new Size(780, 24)
             };
-            panel.Controls.Add(sub);
-            panel.Controls.Add(label);
-            pnlDocumentsScreen.Controls.Add(panel);
+            hero.Controls.Add(heroSubtitle);
+            hero.Controls.Add(heroTitle);
+            hero.Controls.Add(heroAccent);
+
+            pnlDocumentsTop = new Guna2Panel
+            {
+                Dock = DockStyle.Fill,
+                FillColor = card,
+                BorderColor = border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Margin = new Padding(0, 0, 12, 12),
+                Padding = new Padding(0)
+            };
+
+            var documentsActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                BackColor = Color.Transparent,
+                Padding = new Padding(18, 22, 18, 10)
+            };
+
+            txtDocumentSearch = CreateTextBox("Szukaj po tytule, kategorii, treści lub autorze", 0, 0, 340);
+            txtDocumentSearch.Margin = new Padding(0, 0, 12, 10);
+            cmbDocumentStatus = CreateComboBox(0, 0, 142);
+            cmbDocumentStatus.Margin = new Padding(0, 4, 12, 10);
+            btnDocumentSearch = CreateActionButton("Szukaj", 0, 0, 96, magenta);
+            btnDocumentSearch.Margin = new Padding(0, 0, 12, 10);
+            btnDocumentSearch.Click += btnDocumentSearch_Click;
+            btnDocumentClear = CreateActionButton("Wyczyść", 0, 0, 100, SismedTheme.Blue);
+            btnDocumentClear.Margin = new Padding(0, 0, 12, 10);
+            btnDocumentClear.Click += btnDocumentClear_Click;
+            btnAddDocument = CreateActionButton("+ Dodaj dokument", 0, 0, 156, SismedTheme.Success);
+            btnAddDocument.Margin = new Padding(0, 0, 12, 10);
+            btnAddDocument.Click += btnAddDocument_Click;
+            btnEditDocument = CreateActionButton("Edytuj", 0, 0, 92, SismedTheme.Blue);
+            btnEditDocument.Margin = new Padding(0, 0, 12, 10);
+            btnEditDocument.Click += btnEditDocument_Click;
+            btnArchiveDocument = CreateActionButton("Archiwizuj", 0, 0, 118, SismedTheme.Danger);
+            btnArchiveDocument.Margin = new Padding(0, 0, 12, 10);
+            btnArchiveDocument.Click += btnArchiveDocument_Click;
+            documentsActions.Controls.AddRange(new Control[]
+            {
+                txtDocumentSearch, cmbDocumentStatus, btnDocumentSearch, btnDocumentClear,
+                btnAddDocument, btnEditDocument, btnArchiveDocument
+            });
+            pnlDocumentsTop.Controls.Add(documentsActions);
+
+            dgvDocuments = CreateGrid();
+            dgvDocuments.Dock = DockStyle.Fill;
+            dgvDocuments.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvDocuments.Margin = new Padding(0, 0, 12, 0);
+            dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docTitle", HeaderText = "Tytuł", FillWeight = 170 });
+            dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docCategory", HeaderText = "Kategoria", FillWeight = 100 });
+            dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docAuthor", HeaderText = "Autor", FillWeight = 120 });
+            dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docCreated", HeaderText = "Utworzono", FillWeight = 95 });
+            dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docUpdated", HeaderText = "Modyfikacja", FillWeight = 95 });
+            dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docStatus", HeaderText = "Status", FillWeight = 80 });
+            dgvDocuments.SelectionChanged += dgvDocuments_SelectionChanged;
+
+            pnlDocumentDetails = new Guna2Panel
+            {
+                Dock = DockStyle.Fill,
+                FillColor = card,
+                BorderColor = border,
+                BorderThickness = 1,
+                BorderRadius = 14,
+                Padding = new Padding(22)
+            };
+            lblDocumentDetailsTitle = new Label
+            {
+                Text = "Wybierz dokument",
+                Dock = DockStyle.Top,
+                Height = 42,
+                Font = SismedTheme.Font(14f, FontStyle.Bold),
+                ForeColor = SismedTheme.Navy
+            };
+            lblDocumentDetailsMeta = new Label
+            {
+                Text = "Brak wybranego dokumentu.",
+                Dock = DockStyle.Top,
+                Height = 112,
+                Font = SismedTheme.Font(9f),
+                ForeColor = muted
+            };
+            txtDocumentDetailsContent = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Vertical,
+                Font = SismedTheme.Font(10f),
+                ForeColor = text,
+                BackColor = SismedTheme.CardSoft,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            pnlDocumentDetails.Controls.Add(txtDocumentDetailsContent);
+            pnlDocumentDetails.Controls.Add(lblDocumentDetailsMeta);
+            pnlDocumentDetails.Controls.Add(lblDocumentDetailsTitle);
+
+            documentsRoot.Controls.Add(hero, 0, 0);
+            documentsRoot.SetColumnSpan(hero, 2);
+            documentsRoot.Controls.Add(pnlDocumentsTop, 0, 1);
+            documentsRoot.SetColumnSpan(pnlDocumentsTop, 2);
+            documentsRoot.Controls.Add(dgvDocuments, 0, 2);
+            documentsRoot.Controls.Add(pnlDocumentDetails, 1, 2);
+
+            pnlDocumentsScreen.Controls.Add(documentsRoot);
         }
 
         private void BuildPersonnelScreen(
@@ -1202,7 +1333,7 @@ namespace VS_CUWSISMED
         private Panel pnlPatientPlannedDetails;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails, pnlCalendarDetails;
         private TableLayoutPanel pnlDashboardCards;
-        private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost;
+        private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost, pnlDocumentsTop, pnlDocumentDetails;
         private PictureBox picLogo;
         private Label lblNavTitle, lblNavSection, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;
         private Label lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone;
@@ -1215,25 +1346,27 @@ namespace VS_CUWSISMED
         private Label lblTodayVisitsValue, lblPlannedVisitsValue, lblPatientsValue;
         private Label lblBookDoctor, lblBookDate, lblCalDoctor, lblCalDate, lblCalService, lblCalStatus;
         private Label lblCalendarDetailsTitle, lblCalendarDetails;
+        private Label lblDocumentDetailsTitle, lblDocumentDetailsMeta;
         private Label lblSwapResult;
         private Label lblEmployeeName, lblEmployeePesel, lblEmployeeBirthDate, lblEmployeeLogin;
         private Label lblEmployeeRole, lblEmployeeStatus, lblEmployeeDoctor, lblEmployeeSpecialization;
         private Guna2TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
-        private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch;
-        private TextBox txtPatientNote, txtCancelAppointmentReason, txtCalendarCancelReason;
+        private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch, txtDocumentSearch;
+        private TextBox txtPatientNote, txtCancelAppointmentReason, txtCalendarCancelReason, txtDocumentDetailsContent;
         private Guna2Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
         private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
         private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
         private Guna2Button btnCalendarOpenPatient, btnCalendarCancelAppointment;
+        private Guna2Button btnDocumentSearch, btnDocumentClear, btnAddDocument, btnEditDocument, btnArchiveDocument;
         private Guna2Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
         private Guna2Button btnPatientBookingNext, btnPatientBookingSearch;
         private Guna2Button btnCancelPatientAppointment, btnSwapPatientAppointment;
         private Guna2Button btnAddPatientNote, btnDeletePatientNote;
         private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
-        private ComboBox cmbDoctor, cmbCalDoctor, cmbCalService, cmbCalStatus;
+        private ComboBox cmbDoctor, cmbCalDoctor, cmbCalService, cmbCalStatus, cmbDocumentStatus;
         private ComboBox cmbPatientBookingService, cmbPatientBookingDoctor, cmbPatientBookingRange;
         private Guna2DateTimePicker dtpBook, dtpCal;
-        private DataGridView dgvSlots, dgvCal, dgvReserved, dgvEmployees;
+        private DataGridView dgvSlots, dgvCal, dgvReserved, dgvEmployees, dgvDocuments;
         private DataGridView dgvPatientResults, dgvPatientNotes, dgvPatientPlanned, dgvPatientHistory;
         private DataGridView dgvPatientBookingSlots;
         private TabControl tabControl;

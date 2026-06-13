@@ -140,6 +140,33 @@ namespace VS_CUWSISMED
         public string Reason { get; set; }
     }
 
+    public enum DocumentStatus
+    {
+        Active,
+        Archived
+    }
+
+    public sealed class SismedDocument
+    {
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public string Category { get; set; }
+        public string Content { get; set; }
+        public string Author { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public DocumentStatus Status { get; set; }
+        public string LastEditedBy { get; set; }
+
+        public string StatusText
+        {
+            get
+            {
+                return Status == DocumentStatus.Archived ? "Archiwalny" : "Aktywny";
+            }
+        }
+    }
+
     public sealed class Employee
     {
         public int Id { get; set; }

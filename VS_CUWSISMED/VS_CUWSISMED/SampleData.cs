@@ -13,6 +13,7 @@ namespace VS_CUWSISMED
         public List<MedicalService> Services { get; private set; }
         public List<PatientNote> PatientNotes { get; private set; }
         public List<PatientWarning> PatientWarnings { get; private set; }
+        public List<SismedDocument> Documents { get; private set; }
 
         public ClinicSeedData()
         {
@@ -24,6 +25,7 @@ namespace VS_CUWSISMED
             Services = new List<MedicalService>();
             PatientNotes = new List<PatientNote>();
             PatientWarnings = new List<PatientWarning>();
+            Documents = new List<SismedDocument>();
         }
     }
 
@@ -208,6 +210,32 @@ namespace VS_CUWSISMED
                 PatientId = 2,
                 CreatedAt = DateTime.Now.AddDays(-14),
                 Reason = "Odwołanie wizyty mniej niż 24h przed terminem."
+            });
+
+            data.Documents.Add(new SismedDocument
+            {
+                Id = 1,
+                Title = "Procedura rejestracji pacjenta",
+                Category = "Recepcja",
+                Content = "Zweryfikuj dane pacjenta, numer PESEL oraz aktualny numer telefonu przed umówieniem wizyty.",
+                Author = "Administrator SISMED",
+                CreatedAt = DateTime.Now.AddDays(-7),
+                UpdatedAt = DateTime.Now.AddDays(-7),
+                Status = DocumentStatus.Active,
+                LastEditedBy = "Administrator SISMED"
+            });
+
+            data.Documents.Add(new SismedDocument
+            {
+                Id = 2,
+                Title = "Zasady obsługi blokad rezerwacji",
+                Category = "Wizyty",
+                Content = "Po trzech ostrzeżeniach pacjent otrzymuje czasową blokadę rezerwacji zgodnie z zasadami placówki.",
+                Author = "Administrator SISMED",
+                CreatedAt = DateTime.Now.AddDays(-3),
+                UpdatedAt = DateTime.Now.AddDays(-3),
+                Status = DocumentStatus.Active,
+                LastEditedBy = "Administrator SISMED"
             });
 
             return data;
