@@ -1,22 +1,21 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
     public sealed class AddPatientDialog : Form
     {
-        private readonly Guna2TextBox txtFirstName;
-        private readonly Guna2TextBox txtLastName;
-        private readonly Guna2TextBox txtPesel;
-        private readonly Guna2TextBox txtBirthDate;
-        private readonly Guna2TextBox txtPhone;
-        private readonly Guna2TextBox txtEmail;
-        private readonly Guna2TextBox txtAddress;
-        private readonly Guna2TextBox txtNotes;
-        private readonly Guna2Button btnSave;
-        private readonly Guna2Button btnCancel;
+        private readonly TextBox txtFirstName;
+        private readonly TextBox txtLastName;
+        private readonly TextBox txtPesel;
+        private readonly TextBox txtBirthDate;
+        private readonly TextBox txtPhone;
+        private readonly TextBox txtEmail;
+        private readonly TextBox txtAddress;
+        private readonly TextBox txtNotes;
+        private readonly Button btnSave;
+        private readonly Button btnCancel;
 
         public Patient Patient { get; private set; }
 
@@ -39,24 +38,20 @@ namespace VS_CUWSISMED
             txtAddress = CreateTextBox("Adres", 312);
             txtNotes = CreateTextBox("Notatka pacjenta", 360);
 
-            btnSave = new Guna2Button
+            btnSave = new Button
             {
                 Text = "Zapisz",
                 Location = new Point(210, 414),
-                Size = new Size(84, 32),
-                BorderRadius = 8,
-                ForeColor = Color.White,
+                Size = new Size(84, 32)
             };
             SismedTheme.ApplySuccessButton(btnSave);
             btnSave.Click += btnSave_Click;
 
-            btnCancel = new Guna2Button
+            btnCancel = new Button
             {
                 Text = "Anuluj",
                 Location = new Point(304, 414),
-                Size = new Size(84, 32),
-                BorderRadius = 8,
-                ForeColor = Color.White,
+                Size = new Size(84, 32)
             };
             SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
@@ -72,17 +67,15 @@ namespace VS_CUWSISMED
             });
         }
 
-        private Guna2TextBox CreateTextBox(string placeholder, int top)
+        private TextBox CreateTextBox(string placeholder, int top)
         {
-            var textBox = new Guna2TextBox
+            var textBox = new TextBox
             {
                 Location = new Point(24, top),
-                Size = new Size(364, 36),
-                PlaceholderText = placeholder,
-                BorderThickness = 2
+                Size = new Size(364, 28)
             };
 
-            SismedTheme.ApplyTextBox(textBox);
+            SismedTheme.ApplyTextBox(textBox, placeholder);
             return textBox;
         }
 

@@ -1,25 +1,24 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
     public sealed class RegisterEmployeeDialog : Form
     {
         private readonly bool allowRoleSelection;
-        private readonly Guna2TextBox txtLogin;
-        private readonly Guna2TextBox txtFirstName;
-        private readonly Guna2TextBox txtLastName;
-        private readonly Guna2TextBox txtPesel;
+        private readonly TextBox txtLogin;
+        private readonly TextBox txtFirstName;
+        private readonly TextBox txtLastName;
+        private readonly TextBox txtPesel;
         private readonly DateTimePicker dtpBirthDate;
         private readonly ComboBox cmbRole;
         private readonly CheckBox chkDoctor;
-        private readonly Guna2TextBox txtSpecialization;
-        private readonly Guna2TextBox txtPassword;
-        private readonly Guna2TextBox txtRepeatPassword;
-        private readonly Guna2Button btnRegister;
-        private readonly Guna2Button btnCancel;
+        private readonly TextBox txtSpecialization;
+        private readonly TextBox txtPassword;
+        private readonly TextBox txtRepeatPassword;
+        private readonly Button btnRegister;
+        private readonly Button btnCancel;
 
         public Employee RegisteredEmployee { get; private set; }
 
@@ -89,24 +88,20 @@ namespace VS_CUWSISMED
             txtPassword.PasswordChar = '●';
             txtRepeatPassword.PasswordChar = '●';
 
-            btnRegister = new Guna2Button
+            btnRegister = new Button
             {
                 Text = allowRoleSelection ? "Dodaj pracownika" : "Utworz konto",
                 Location = new Point(190, 500),
-                Size = new Size(142, 34),
-                BorderRadius = 8,
-                ForeColor = Color.White
+                Size = new Size(142, 34)
             };
             SismedTheme.ApplySuccessButton(btnRegister);
             btnRegister.Click += btnRegister_Click;
 
-            btnCancel = new Guna2Button
+            btnCancel = new Button
             {
                 Text = "Anuluj",
                 Location = new Point(340, 500),
-                Size = new Size(76, 34),
-                BorderRadius = 8,
-                ForeColor = Color.White
+                Size = new Size(76, 34)
             };
             SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
@@ -123,17 +118,15 @@ namespace VS_CUWSISMED
             });
         }
 
-        private Guna2TextBox CreateTextBox(string placeholder, int top)
+        private TextBox CreateTextBox(string placeholder, int top)
         {
-            var textBox = new Guna2TextBox
+            var textBox = new TextBox
             {
                 Location = new Point(24, top),
-                Size = new Size(392, 36),
-                PlaceholderText = placeholder,
-                BorderThickness = 2
+                Size = new Size(392, 28)
             };
 
-            SismedTheme.ApplyTextBox(textBox);
+            SismedTheme.ApplyTextBox(textBox, placeholder);
             return textBox;
         }
 

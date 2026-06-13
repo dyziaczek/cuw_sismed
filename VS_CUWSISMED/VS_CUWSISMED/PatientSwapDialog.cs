@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
@@ -10,15 +9,15 @@ namespace VS_CUWSISMED
     {
         private readonly IClinicDataStore dataStore;
         private readonly int currentPatientId;
-        private readonly Guna2TextBox txtPesel;
-        private readonly Guna2TextBox txtFirstName;
-        private readonly Guna2TextBox txtLastName;
-        private readonly Guna2TextBox txtBirthDate;
-        private readonly Guna2TextBox txtPhone;
-        private readonly Guna2TextBox txtEmail;
-        private readonly Guna2Button btnSearch;
-        private readonly Guna2Button btnChoose;
-        private readonly Guna2Button btnCancel;
+        private readonly TextBox txtPesel;
+        private readonly TextBox txtFirstName;
+        private readonly TextBox txtLastName;
+        private readonly TextBox txtBirthDate;
+        private readonly TextBox txtPhone;
+        private readonly TextBox txtEmail;
+        private readonly Button btnSearch;
+        private readonly Button btnChoose;
+        private readonly Button btnCancel;
         private readonly DataGridView dgvResults;
 
         public Patient SelectedPatient { get; private set; }
@@ -52,7 +51,7 @@ namespace VS_CUWSISMED
             txtPhone = CreateTextBox("Telefon", 248, 112, 210);
             txtEmail = CreateTextBox("E-mail", 472, 112, 210);
 
-            btnSearch = new Guna2Button
+            btnSearch = new Button
             {
                 Text = "Szukaj",
                 Location = new Point(24, 164),
@@ -83,7 +82,7 @@ namespace VS_CUWSISMED
             dgvResults.Columns.Add(new DataGridViewTextBoxColumn { Name = "email", HeaderText = "E-mail", Width = 170 });
             dgvResults.CellDoubleClick += (sender, args) => ChooseSelectedPatient();
 
-            btnChoose = new Guna2Button
+            btnChoose = new Button
             {
                 Text = "Wybierz pacjenta",
                 Location = new Point(470, 462),
@@ -93,7 +92,7 @@ namespace VS_CUWSISMED
             SismedTheme.ApplySuccessButton(btnChoose);
             btnChoose.Click += (sender, args) => ChooseSelectedPatient();
 
-            btnCancel = new Guna2Button
+            btnCancel = new Button
             {
                 Text = "Anuluj",
                 Location = new Point(622, 462),
@@ -123,15 +122,14 @@ namespace VS_CUWSISMED
             });
         }
 
-        private Guna2TextBox CreateTextBox(string placeholder, int left, int top, int width)
+        private TextBox CreateTextBox(string placeholder, int left, int top, int width)
         {
-            var textBox = new Guna2TextBox
+            var textBox = new TextBox
             {
                 Location = new Point(left, top),
-                Size = new Size(width, 36),
-                PlaceholderText = placeholder
+                Size = new Size(width, 28)
             };
-            SismedTheme.ApplyTextBox(textBox);
+            SismedTheme.ApplyTextBox(textBox, placeholder);
             return textBox;
         }
 

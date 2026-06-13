@@ -1,19 +1,18 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
     public sealed class DocumentDialog : Form
     {
         private readonly SismedDocument originalDocument;
-        private readonly Guna2TextBox txtTitle;
-        private readonly Guna2TextBox txtCategory;
+        private readonly TextBox txtTitle;
+        private readonly TextBox txtCategory;
         private readonly TextBox txtContent;
         private readonly ComboBox cmbStatus;
-        private readonly Guna2Button btnSave;
-        private readonly Guna2Button btnCancel;
+        private readonly Button btnSave;
+        private readonly Button btnCancel;
 
         private sealed class StatusOption
         {
@@ -22,6 +21,11 @@ namespace VS_CUWSISMED
         }
 
         public SismedDocument Document { get; private set; }
+
+        public DocumentDialog()
+            : this(null, true)
+        {
+        }
 
         public DocumentDialog(SismedDocument document, bool allowStatusSelection)
         {
@@ -90,7 +94,7 @@ namespace VS_CUWSISMED
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            btnSave = new Guna2Button
+            btnSave = new Button
             {
                 Text = "Zapisz",
                 Location = new Point(424, 504),
@@ -99,7 +103,7 @@ namespace VS_CUWSISMED
             SismedTheme.ApplySuccessButton(btnSave);
             btnSave.Click += btnSave_Click;
 
-            btnCancel = new Guna2Button
+            btnCancel = new Button
             {
                 Text = "Anuluj",
                 Location = new Point(526, 504),
@@ -121,16 +125,15 @@ namespace VS_CUWSISMED
             LoadDocument(document);
         }
 
-        private Guna2TextBox CreateTextBox(string placeholder, int left, int top, int width)
+        private TextBox CreateTextBox(string placeholder, int left, int top, int width)
         {
-            var textBox = new Guna2TextBox
+            var textBox = new TextBox
             {
                 Location = new Point(left, top),
-                Size = new Size(width, 36),
-                PlaceholderText = placeholder
+                Size = new Size(width, 28)
             };
 
-            SismedTheme.ApplyTextBox(textBox);
+            SismedTheme.ApplyTextBox(textBox, placeholder);
             return textBox;
         }
 

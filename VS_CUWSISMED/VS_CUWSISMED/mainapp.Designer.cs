@@ -1,7 +1,6 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
@@ -92,19 +91,19 @@ namespace VS_CUWSISMED
             btnNavDocuments.Click += btnNavDocuments_Click;
             btnNavPersonnel.Click += btnNavPersonnel_Click;
 
-            btnLogout = new Guna2Button
+            btnLogout = new Button
             {
                 Text = "Wyloguj",
                 Font = navFont,
                 ForeColor = Color.White,
-                FillColor = Color.Transparent,
-                BorderColor = magenta,
-                BorderThickness = 1,
-                BorderRadius = 8,
+                BackColor = Color.Transparent,
                 Location = new Point(20, 690),
                 Size = new Size(236, 38),
                 Anchor = AnchorStyles.Left | AnchorStyles.Bottom
             };
+            SismedTheme.ApplyOutlineButton(btnLogout);
+            btnLogout.BackColor = Color.Transparent;
+            btnLogout.FlatAppearance.BorderColor = magenta;
             btnLogout.Click += btnLogout_Click;
 
             pnlNavigation.Controls.AddRange(new Control[]
@@ -147,17 +146,17 @@ namespace VS_CUWSISMED
                 TextAlign = ContentAlignment.MiddleRight
             };
 
-            btnClose = new Guna2Button
+            btnClose = new Button
             {
                 Text = "X",
                 Font = SismedTheme.Font(10f, FontStyle.Bold),
                 ForeColor = Color.White,
-                FillColor = magenta,
-                BorderRadius = 8,
+                BackColor = magenta,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(970, 16),
                 Size = new Size(36, 32)
             };
+            SismedTheme.ApplyPrimaryButton(btnClose);
             btnClose.Click += (sender, args) => Close();
 
             pnlTopBar.Controls.AddRange(new Control[] { lblScreenTitle, lblCurrentUser, btnClose });
@@ -196,22 +195,24 @@ namespace VS_CUWSISMED
             ResumeLayout(false);
         }
 
-        private Guna2Button CreateNavButton(string text, int top, Font font, Color fill)
+        private Button CreateNavButton(string text, int top, Font font, Color fill)
         {
-            var button = new Guna2Button
+            var button = new Button
             {
                 Text = text,
                 Font = font,
                 ForeColor = Color.White,
-                FillColor = fill,
-                BorderRadius = SismedTheme.Radius,
+                BackColor = fill,
                 Location = new Point(20, top),
                 Size = new Size(SismedTheme.SidebarWidth - 40, 44),
-                TextAlign = HorizontalAlignment.Left,
+                TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(16, 0, 0, 0),
                 Image = null
             };
-            button.HoverState.FillColor = fill == SismedTheme.Magenta ? SismedTheme.Magenta : SismedTheme.Blue;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.UseVisualStyleBackColor = false;
+            button.Cursor = Cursors.Hand;
             return button;
         }
 
@@ -311,14 +312,11 @@ namespace VS_CUWSISMED
                 Padding = new Padding(18, 0, 0, 0)
             };
 
-            var pnlReceptionHero = new Guna2Panel
+            var pnlReceptionHero = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = 92,
-                FillColor = SismedTheme.Card,
-                BorderColor = SismedTheme.Border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = SismedTheme.Card,
                 Padding = new Padding(24),
                 Margin = new Padding(0, 0, 0, 12)
             };
@@ -474,13 +472,10 @@ namespace VS_CUWSISMED
             patientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350F));
             patientLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            pnlPatientDetailsPanel = new Guna2Panel
+            pnlPatientDetailsPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                FillColor = SismedTheme.CardSoft,
-                BorderColor = SismedTheme.Border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = SismedTheme.CardSoft,
                 Margin = new Padding(0, 0, 16, 0)
             };
 
@@ -517,13 +512,10 @@ namespace VS_CUWSISMED
                 lblPatientPanelBlock, btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory
             });
 
-            pnlPatientActionHost = new Guna2Panel
+            pnlPatientActionHost = new Panel
             {
                 Dock = DockStyle.Fill,
-                FillColor = SismedTheme.Card,
-                BorderColor = SismedTheme.Border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = SismedTheme.Card,
                 Padding = new Padding(18)
             };
 
@@ -870,13 +862,10 @@ namespace VS_CUWSISMED
             documentsRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
             documentsRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            var hero = new Guna2Panel
+            var hero = new Panel
             {
                 Dock = DockStyle.Fill,
-                FillColor = card,
-                BorderColor = border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = card,
                 Margin = new Padding(0, 0, 0, 12),
                 Padding = new Padding(24)
             };
@@ -906,13 +895,10 @@ namespace VS_CUWSISMED
             hero.Controls.Add(heroTitle);
             hero.Controls.Add(heroAccent);
 
-            pnlDocumentsTop = new Guna2Panel
+            pnlDocumentsTop = new Panel
             {
                 Dock = DockStyle.Fill,
-                FillColor = card,
-                BorderColor = border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = card,
                 Margin = new Padding(0, 0, 12, 12),
                 Padding = new Padding(0)
             };
@@ -964,13 +950,10 @@ namespace VS_CUWSISMED
             dgvDocuments.Columns.Add(new DataGridViewTextBoxColumn { Name = "docStatus", HeaderText = "Status", FillWeight = 80 });
             dgvDocuments.SelectionChanged += dgvDocuments_SelectionChanged;
 
-            pnlDocumentDetails = new Guna2Panel
+            pnlDocumentDetails = new Panel
             {
                 Dock = DockStyle.Fill,
-                FillColor = card,
-                BorderColor = border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = card,
                 Padding = new Padding(22)
             };
             lblDocumentDetailsTitle = new Label
@@ -1098,13 +1081,10 @@ namespace VS_CUWSISMED
 
         private Panel CreateMetricCard(string title, Label valueLabel, Color accent)
         {
-            var card = new Guna2Panel
+            var card = new Panel
             {
                 Dock = DockStyle.Fill,
-                FillColor = SismedTheme.Card,
-                BorderColor = SismedTheme.Border,
-                BorderThickness = 1,
-                BorderRadius = 14,
+                BackColor = SismedTheme.Card,
                 Margin = new Padding(0, 0, SismedTheme.Gap, 0),
                 Padding = new Padding(18)
             };
@@ -1137,21 +1117,20 @@ namespace VS_CUWSISMED
             return card;
         }
 
-        private Guna2TextBox CreateTextBox(string placeholder, int left, int top, int width)
+        private TextBox CreateTextBox(string placeholder, int left, int top, int width)
         {
-            var textBox = new Guna2TextBox
+            var textBox = new TextBox
             {
                 Location = new Point(left, top),
                 Size = new Size(width, 36),
-                PlaceholderText = placeholder
             };
-            SismedTheme.ApplyTextBox(textBox);
+            SismedTheme.ApplyTextBox(textBox, placeholder);
             return textBox;
         }
 
-        private Guna2Button CreateActionButton(string text, int left, int top, int width, Color fill)
+        private Button CreateActionButton(string text, int left, int top, int width, Color fill)
         {
-            var button = new Guna2Button
+            var button = new Button
             {
                 Text = text,
                 Location = new Point(left, top),
@@ -1172,7 +1151,7 @@ namespace VS_CUWSISMED
             else
             {
                 SismedTheme.ApplySecondaryButton(button);
-                button.FillColor = fill;
+                button.BackColor = fill;
             }
 
             return button;
@@ -1189,17 +1168,15 @@ namespace VS_CUWSISMED
             };
         }
 
-        private Guna2DateTimePicker CreateDatePicker(int left, int top)
+        private DateTimePicker CreateDatePicker(int left, int top)
         {
-            return new Guna2DateTimePicker
+            return new DateTimePicker
             {
                 Location = new Point(left, top),
                 Size = new Size(150, 36),
                 CustomFormat = "dd.MM.yyyy",
                 Format = DateTimePickerFormat.Custom,
                 Value = DateTime.Today,
-                BorderColor = SismedTheme.Border,
-                BorderThickness = 1
             };
         }
 
@@ -1333,7 +1310,7 @@ namespace VS_CUWSISMED
         private Panel pnlPatientPlannedDetails;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails, pnlCalendarDetails;
         private TableLayoutPanel pnlDashboardCards;
-        private Guna2Panel pnlPatientDetailsPanel, pnlPatientActionHost, pnlDocumentsTop, pnlDocumentDetails;
+        private Panel pnlPatientDetailsPanel, pnlPatientActionHost, pnlDocumentsTop, pnlDocumentDetails;
         private PictureBox picLogo;
         private Label lblNavTitle, lblNavSection, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;
         private Label lblPatientName, lblPatientPesel, lblPatientBirthDate, lblPatientPhone;
@@ -1350,22 +1327,22 @@ namespace VS_CUWSISMED
         private Label lblSwapResult;
         private Label lblEmployeeName, lblEmployeePesel, lblEmployeeBirthDate, lblEmployeeLogin;
         private Label lblEmployeeRole, lblEmployeeStatus, lblEmployeeDoctor, lblEmployeeSpecialization;
-        private Guna2TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
-        private Guna2TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch, txtDocumentSearch;
+        private TextBox txtPatientPesel, txtPatientFirstName, txtPatientLastName, txtPatientBirthDate;
+        private TextBox txtPatientPhone, txtPatientEmail, txtSwapSearch, txtEmployeeSearch, txtDocumentSearch;
         private TextBox txtPatientNote, txtCancelAppointmentReason, txtCalendarCancelReason, txtDocumentDetailsContent;
-        private Guna2Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
-        private Guna2Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
-        private Guna2Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
-        private Guna2Button btnCalendarOpenPatient, btnCalendarCancelAppointment;
-        private Guna2Button btnDocumentSearch, btnDocumentClear, btnAddDocument, btnEditDocument, btnArchiveDocument;
-        private Guna2Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
-        private Guna2Button btnPatientBookingNext, btnPatientBookingSearch;
-        private Guna2Button btnCancelPatientAppointment, btnSwapPatientAppointment;
-        private Guna2Button btnAddPatientNote, btnDeletePatientNote;
-        private Guna2Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
+        private Button btnNavCalendar, btnNavReception, btnNavDocuments, btnNavPersonnel;
+        private Button btnSearch, btnClearPatientSearch, btnAddPatient, btnLogout, btnLoadSlots, btnReserve;
+        private Button btnLoadCal, btnCancel, btnSwap, btnSwapFind, btnClose;
+        private Button btnCalendarOpenPatient, btnCalendarCancelAppointment;
+        private Button btnDocumentSearch, btnDocumentClear, btnAddDocument, btnEditDocument, btnArchiveDocument;
+        private Button btnPatientMessages, btnPatientBook, btnPatientPlanned, btnPatientHistory;
+        private Button btnPatientBookingNext, btnPatientBookingSearch;
+        private Button btnCancelPatientAppointment, btnSwapPatientAppointment;
+        private Button btnAddPatientNote, btnDeletePatientNote;
+        private Button btnEmployeeSearch, btnAddEmployee, btnDeactivateEmployee;
         private ComboBox cmbDoctor, cmbCalDoctor, cmbCalService, cmbCalStatus, cmbDocumentStatus;
         private ComboBox cmbPatientBookingService, cmbPatientBookingDoctor, cmbPatientBookingRange;
-        private Guna2DateTimePicker dtpBook, dtpCal;
+        private DateTimePicker dtpBook, dtpCal;
         private DataGridView dgvSlots, dgvCal, dgvReserved, dgvEmployees, dgvDocuments;
         private DataGridView dgvPatientResults, dgvPatientNotes, dgvPatientPlanned, dgvPatientHistory;
         private DataGridView dgvPatientBookingSlots;

@@ -33,12 +33,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Guna.Charts.WinForms, Version=1.1.0.0, Culture=neutral, PublicKeyToken=8b9d14aa5142e261, processorArchitecture=MSIL">
-      <HintPath>packages\Guna.Charts.WinForms.1.1.0\lib\net48\Guna.Charts.WinForms.dll</HintPath>
-    </Reference>
-    <Reference Include="Guna.UI2, Version=2.0.4.6, Culture=neutral, PublicKeyToken=8b9d14aa5142e261, processorArchitecture=MSIL">
-      <HintPath>packages\Ububox.G2Crack.2.0.4.6\lib\net48\Guna.UI2.dll</HintPath>
-    </Reference>
     <Reference Include="System">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8\System.dll</HintPath>
     </Reference>
@@ -65,6 +59,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="AppointmentCalendarWindow.Designer.cs" />
+    <Compile Include="DesignTimeHelper.cs" />
     <Compile Include="DocumentDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -96,6 +91,7 @@
     <Compile Include="SampleData.cs" />
     <Compile Include="Services.cs" />
     <Compile Include="SismedTheme.cs" />
+    <Compile Include="WindowDragHelper.cs" />
     <EmbeddedResource Include="login_page.resx">
       <DependentUpon>login_page.cs</DependentUpon>
     </EmbeddedResource>

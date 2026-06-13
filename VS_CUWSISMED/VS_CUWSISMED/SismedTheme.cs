@@ -1,7 +1,8 @@
+using System;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
@@ -29,50 +30,72 @@ namespace VS_CUWSISMED
         public const int Padding = 24;
 
         private static readonly string FontFamilyName = ResolveFontFamilyName();
+        private const int EM_SETCUEBANNER = 0x1501;
 
-        public static Font Font(float size, FontStyle style = FontStyle.Regular)
+        public static Font Font(float size)
+        {
+            return Font(size, FontStyle.Regular);
+        }
+
+        public static Font Font(float size, FontStyle style)
         {
             return new Font(FontFamilyName, size, style, GraphicsUnit.Point);
         }
 
-        public static void ApplyTextBox(Guna2TextBox textBox)
+        public static Font GetFont(float size)
+        {
+            return Font(size);
+        }
+
+        public static Font GetFont(float size, FontStyle style)
+        {
+            return Font(size, style);
+        }
+
+        public static void ApplyTextBox(TextBox textBox)
+        {
+            ApplyTextBox(textBox, null);
+        }
+
+        public static void ApplyTextBox(TextBox textBox, string placeholder)
         {
             textBox.Font = Font(9f);
             textBox.ForeColor = Text;
-            textBox.PlaceholderForeColor = Muted;
-            textBox.BorderColor = Border;
-            textBox.BorderThickness = 1;
-            textBox.BorderRadius = Radius;
-            textBox.FillColor = Card;
-            textBox.FocusedState.BorderColor = Magenta;
-            textBox.HoverState.BorderColor = Blue;
+            textBox.BackColor = Card;
+            textBox.BorderStyle = BorderStyle.FixedSingle;
+            textBox.AutoSize = false;
+
+            if (!string.IsNullOrWhiteSpace(placeholder))
+            {
+                ApplyCueBanner(textBox, placeholder);
+            }
         }
 
-        public static void ApplyPrimaryButton(Guna2Button button)
+        public static void ApplyPrimaryButton(Button button)
         {
             ApplyButton(button, Magenta, Color.White);
         }
 
-        public static void ApplySecondaryButton(Guna2Button button)
+        public static void ApplySecondaryButton(Button button)
         {
             ApplyButton(button, Blue, Color.White);
         }
 
-        public static void ApplySuccessButton(Guna2Button button)
+        public static void ApplySuccessButton(Button button)
         {
             ApplyButton(button, Success, Color.White);
         }
 
-        public static void ApplyDangerButton(Guna2Button button)
+        public static void ApplyDangerButton(Button button)
         {
             ApplyButton(button, Danger, Color.White);
         }
 
-        public static void ApplyOutlineButton(Guna2Button button)
+        public static void ApplyOutlineButton(Button button)
         {
             ApplyButton(button, Color.Transparent, Magenta);
-            button.BorderColor = Magenta;
-            button.BorderThickness = 1;
+            button.FlatAppearance.BorderColor = Magenta;
+            button.FlatAppearance.BorderSize = 1;
         }
 
         public static void ApplyGrid(DataGridView grid)
@@ -94,14 +117,30 @@ namespace VS_CUWSISMED
             grid.RowTemplate.Height = 32;
         }
 
-        private static void ApplyButton(Guna2Button button, Color fill, Color fore)
+        private static void ApplyButton(Button button, Color fill, Color fore)
         {
             button.Font = Font(9f, FontStyle.Bold);
-            button.FillColor = fill;
+            button.BackColor = fill;
             button.ForeColor = fore;
-            button.BorderRadius = Radius;
-            button.BorderColor = Color.Transparent;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderColor = fill == Color.Transparent ? Magenta : fill;
+            button.FlatAppearance.BorderSize = fill == Color.Transparent ? 1 : 0;
+            button.UseVisualStyleBackColor = false;
             button.Cursor = Cursors.Hand;
+        }
+
+        private static void ApplyCueBanner(TextBox textBox, string placeholder)
+        {
+            if (textBox.IsHandleCreated)
+            {
+                SendMessage(textBox.Handle, EM_SETCUEBANNER, (IntPtr)1, placeholder);
+                return;
+            }
+
+            textBox.HandleCreated += (sender, args) =>
+            {
+                SendMessage(textBox.Handle, EM_SETCUEBANNER, (IntPtr)1, placeholder);
+            };
         }
 
         private static string ResolveFontFamilyName()
@@ -109,5 +148,8 @@ namespace VS_CUWSISMED
             bool hasMulish = FontFamily.Families.Any(f => f.Name == "Mulish");
             return hasMulish ? "Mulish" : "Segoe UI";
         }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
     }
 }

@@ -1,11 +1,10 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using Guna.UI2.WinForms;
 
 namespace VS_CUWSISMED
 {
-    partial class login_page
+    public partial class login_page
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -23,17 +22,15 @@ namespace VS_CUWSISMED
         {
             components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(login_page));
-            guna2ControlBox1 = new Guna2ControlBox();
-            guna2Elipse1 = new Guna2Elipse(components);
-            guna2Elipse2 = new Guna2Elipse(components);
+            btnCloseLogin = new Button();
             pnlLogin = new Panel();
             pictureBox1 = new PictureBox();
             lblWelcome = new Label();
             lblHint = new Label();
-            txtusername = new Guna2TextBox();
-            txtpassword = new Guna2TextBox();
-            bttnshowpassword = new Guna2Button();
-            bttnlogin = new Guna2Button();
+            txtusername = new TextBox();
+            txtpassword = new TextBox();
+            bttnshowpassword = new Button();
+            bttnlogin = new Button();
             pnlVisual = new Panel();
             lblVisualTitle = new Label();
             lblVisualSub = new Label();
@@ -55,19 +52,16 @@ namespace VS_CUWSISMED
             Text = "CUW SISMED - logowanie";
             Load += login_page_Load;
 
-            guna2Elipse1.BorderRadius = 24;
-            guna2Elipse1.TargetControl = this;
-            guna2Elipse2.BorderRadius = 20;
-            guna2Elipse2.TargetControl = pnlLogin;
-
-            guna2ControlBox1.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            guna2ControlBox1.BackColor = Color.Transparent;
-            guna2ControlBox1.BorderColor = Color.Transparent;
-            guna2ControlBox1.FillColor = Color.Transparent;
-            guna2ControlBox1.IconColor = Color.White;
-            guna2ControlBox1.Location = new Point(716, 14);
-            guna2ControlBox1.Size = new Size(30, 30);
-            guna2ControlBox1.TabIndex = 0;
+            btnCloseLogin.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnCloseLogin.BackColor = Color.Transparent;
+            btnCloseLogin.FlatStyle = FlatStyle.Flat;
+            btnCloseLogin.FlatAppearance.BorderSize = 0;
+            btnCloseLogin.ForeColor = Color.White;
+            btnCloseLogin.Text = "X";
+            btnCloseLogin.Location = new Point(716, 14);
+            btnCloseLogin.Size = new Size(30, 30);
+            btnCloseLogin.TabIndex = 0;
+            btnCloseLogin.Click += btnCloseLogin_Click;
 
             pnlLogin.BackColor = SismedTheme.Card;
             pnlLogin.Dock = DockStyle.Left;
@@ -95,26 +89,21 @@ namespace VS_CUWSISMED
 
             txtusername.Location = new Point(54, 236);
             txtusername.Size = new Size(338, 40);
-            txtusername.PlaceholderText = "Login";
-            txtusername.IconLeft = Properties.Resources.avatar;
-            txtusername.IconLeftSize = new Size(18, 18);
             txtusername.TabIndex = 1;
-            SismedTheme.ApplyTextBox(txtusername);
+            SismedTheme.ApplyTextBox(txtusername, "Login");
 
             txtpassword.Location = new Point(54, 288);
             txtpassword.Size = new Size(338, 40);
-            txtpassword.PlaceholderText = "Hasło";
-            txtpassword.IconLeft = Properties.Resources._lock;
-            txtpassword.IconLeftSize = new Size(18, 18);
             txtpassword.PasswordChar = '●';
             txtpassword.TabIndex = 2;
             txtpassword.UseSystemPasswordChar = true;
-            SismedTheme.ApplyTextBox(txtpassword);
+            SismedTheme.ApplyTextBox(txtpassword, "Hasło");
 
             bttnshowpassword.BackColor = Color.Transparent;
-            bttnshowpassword.FillColor = Color.Transparent;
+            bttnshowpassword.FlatStyle = FlatStyle.Flat;
+            bttnshowpassword.FlatAppearance.BorderSize = 0;
             bttnshowpassword.Image = Properties.Resources.open_eye;
-            bttnshowpassword.ImageSize = new Size(18, 18);
+            bttnshowpassword.ImageAlign = ContentAlignment.MiddleCenter;
             bttnshowpassword.Location = new Point(356, 294);
             bttnshowpassword.Size = new Size(30, 28);
             bttnshowpassword.TabIndex = 3;
@@ -163,7 +152,7 @@ namespace VS_CUWSISMED
 
             pnlVisual.Controls.AddRange(new Control[]
             {
-                guna2ControlBox1, pnlAccent, lblVisualTitle, lblVisualSub, lblVisualFooter
+                btnCloseLogin, pnlAccent, lblVisualTitle, lblVisualSub, lblVisualFooter
             });
 
             Controls.Add(pnlVisual);
@@ -175,9 +164,7 @@ namespace VS_CUWSISMED
             ResumeLayout(false);
         }
 
-        private Guna2ControlBox guna2ControlBox1;
-        private Guna2Elipse guna2Elipse1;
-        private Guna2Elipse guna2Elipse2;
+        private Button btnCloseLogin;
         private Panel pnlLogin;
         private Panel pnlVisual;
         private Panel pnlAccent;
@@ -186,10 +173,10 @@ namespace VS_CUWSISMED
         private Label lblVisualTitle;
         private Label lblVisualSub;
         private Label lblVisualFooter;
-        private Guna2TextBox txtusername;
-        private Guna2Button bttnlogin;
+        private TextBox txtusername;
+        private Button bttnlogin;
         private PictureBox pictureBox1;
-        private Guna2TextBox txtpassword;
-        private Guna2Button bttnshowpassword;
+        private TextBox txtpassword;
+        private Button bttnshowpassword;
     }
 }

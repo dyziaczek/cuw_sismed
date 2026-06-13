@@ -10,7 +10,7 @@ namespace VS_CUWSISMED
         private readonly IClinicDataStore dataStore;
 
         public AppointmentCalendarWindow()
-            : this(AppServices.DataStore)
+            : this(DesignTimeHelper.IsActive ? null : AppServices.DataStore)
         {
         }
 
@@ -18,6 +18,12 @@ namespace VS_CUWSISMED
         {
             this.dataStore = dataStore;
             InitializeComponent();
+
+            if (DesignTimeHelper.IsActive || dataStore == null)
+            {
+                return;
+            }
+
             LoadDoctors();
             LoadCalendar();
         }

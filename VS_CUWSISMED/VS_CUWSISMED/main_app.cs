@@ -145,10 +145,16 @@ namespace VS_CUWSISMED
 
         public main_app(Employee employee)
         {
-            dataStore = AppServices.DataStore;
+            bool isDesignTime = DesignTimeHelper.IsActive;
+            dataStore = isDesignTime ? null : AppServices.DataStore;
             currentEmployee = employee;
             InitializeComponent();
             MouseDown += MoveForm;
+
+            if (isDesignTime)
+            {
+                return;
+            }
 
             ConfigureCurrentUser();
             LoadDoctorLists();
@@ -237,10 +243,10 @@ namespace VS_CUWSISMED
 
         private void SetActiveNav(string title)
         {
-            btnNavCalendar.FillColor = title == "KALENDARZ WIZYT" ? SismedTheme.Magenta : SismedTheme.NavyDark;
-            btnNavReception.FillColor = title == "RECEPCJA" ? SismedTheme.Magenta : SismedTheme.NavyDark;
-            btnNavDocuments.FillColor = title == "DOKUMENTY" ? SismedTheme.Magenta : SismedTheme.NavyDark;
-            btnNavPersonnel.FillColor = title == "PERSONEL" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavCalendar.BackColor = title == "KALENDARZ WIZYT" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavReception.BackColor = title == "RECEPCJA" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavDocuments.BackColor = title == "DOKUMENTY" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavPersonnel.BackColor = title == "PERSONEL" ? SismedTheme.Magenta : SismedTheme.NavyDark;
         }
 
         private void btnSearch_Click(object sender, EventArgs e)
