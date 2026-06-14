@@ -10,7 +10,19 @@ namespace VS_CUWSISMED
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new login_page()); // <- startowe okno
+
+            Employee employee;
+            using (var login = new login_page())
+            {
+                if (login.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
+
+                employee = login.AuthenticatedEmployee;
+            }
+
+            Application.Run(new main_app(employee));
         }
     }
-}                                                                                    
+}
