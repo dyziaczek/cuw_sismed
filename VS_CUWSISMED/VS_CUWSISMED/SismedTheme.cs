@@ -117,6 +117,35 @@ namespace VS_CUWSISMED
             grid.RowTemplate.Height = 32;
         }
 
+        public static void FitFormToWorkingArea(Form form)
+        {
+            if (form == null)
+            {
+                return;
+            }
+
+            Rectangle workingArea = Screen.FromControl(form).WorkingArea;
+            int maxWidth = Math.Max(360, workingArea.Width - 40);
+            int maxHeight = Math.Max(320, workingArea.Height - 40);
+
+            if (form.MinimumSize.Width > maxWidth || form.MinimumSize.Height > maxHeight)
+            {
+                form.MinimumSize = new Size(
+                    Math.Min(form.MinimumSize.Width, maxWidth),
+                    Math.Min(form.MinimumSize.Height, maxHeight));
+            }
+
+            int width = Math.Min(form.Width, maxWidth);
+            int height = Math.Min(form.Height, maxHeight);
+            if (width != form.Width || height != form.Height)
+            {
+                form.Size = new Size(width, height);
+            }
+
+            form.Left = workingArea.Left + Math.Max(0, (workingArea.Width - form.Width) / 2);
+            form.Top = workingArea.Top + Math.Max(0, (workingArea.Height - form.Height) / 2);
+        }
+
         private static void ApplyButton(Button button, Color fill, Color fore)
         {
             button.Font = Font(9f, FontStyle.Bold);

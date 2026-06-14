@@ -26,8 +26,13 @@ namespace VS_CUWSISMED
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScroll = true;
             ClientSize = new Size(420, 460);
+            MinimumSize = new Size(380, 420);
             BackColor = SismedTheme.Surface;
+            Shown += (sender, args) => SismedTheme.FitFormToWorkingArea(this);
 
             txtFirstName = CreateTextBox("Imie", 24);
             txtLastName = CreateTextBox("Nazwisko", 72);
@@ -42,7 +47,8 @@ namespace VS_CUWSISMED
             {
                 Text = "Zapisz",
                 Location = new Point(210, 414),
-                Size = new Size(84, 32)
+                Size = new Size(84, 32),
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
             SismedTheme.ApplySuccessButton(btnSave);
             btnSave.Click += btnSave_Click;
@@ -51,7 +57,8 @@ namespace VS_CUWSISMED
             {
                 Text = "Anuluj",
                 Location = new Point(304, 414),
-                Size = new Size(84, 32)
+                Size = new Size(84, 32),
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
             SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
@@ -72,7 +79,8 @@ namespace VS_CUWSISMED
             var textBox = new TextBox
             {
                 Location = new Point(24, top),
-                Size = new Size(364, 28)
+                Size = new Size(364, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
             SismedTheme.ApplyTextBox(textBox, placeholder);

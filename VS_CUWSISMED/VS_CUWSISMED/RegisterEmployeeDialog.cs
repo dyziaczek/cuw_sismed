@@ -36,8 +36,13 @@ namespace VS_CUWSISMED
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScroll = true;
             ClientSize = new Size(460, 570);
+            MinimumSize = new Size(400, 500);
             BackColor = SismedTheme.Surface;
+            Shown += (sender, args) => SismedTheme.FitFormToWorkingArea(this);
 
             txtLogin = CreateTextBox("Login", 24);
             txtFirstName = CreateTextBox("Imie", 72);
@@ -48,6 +53,7 @@ namespace VS_CUWSISMED
             {
                 Location = new Point(24, 216),
                 Size = new Size(392, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 CustomFormat = "dd.MM.yyyy",
                 Format = DateTimePickerFormat.Custom,
                 Value = DateTime.Today.AddYears(-30),
@@ -58,6 +64,7 @@ namespace VS_CUWSISMED
             {
                 Location = new Point(24, 264),
                 Size = new Size(392, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = SismedTheme.Font(9f)
             };
@@ -92,7 +99,8 @@ namespace VS_CUWSISMED
             {
                 Text = allowRoleSelection ? "Dodaj pracownika" : "Utworz konto",
                 Location = new Point(190, 500),
-                Size = new Size(142, 34)
+                Size = new Size(142, 34),
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
             SismedTheme.ApplySuccessButton(btnRegister);
             btnRegister.Click += btnRegister_Click;
@@ -101,7 +109,8 @@ namespace VS_CUWSISMED
             {
                 Text = "Anuluj",
                 Location = new Point(340, 500),
-                Size = new Size(76, 34)
+                Size = new Size(76, 34),
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
             SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
@@ -123,7 +132,8 @@ namespace VS_CUWSISMED
             var textBox = new TextBox
             {
                 Location = new Point(24, top),
-                Size = new Size(392, 28)
+                Size = new Size(392, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
             SismedTheme.ApplyTextBox(textBox, placeholder);

@@ -23,9 +23,9 @@ namespace VS_CUWSISMED
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(login_page));
             this.btnCloseLogin = new System.Windows.Forms.Label();
             this.pnlLogin = new System.Windows.Forms.Panel();
-            this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            this.lblWelcome = new System.Windows.Forms.Label();
             this.lblHint = new System.Windows.Forms.Label();
+            this.lblWelcome = new System.Windows.Forms.Label();
+            this.pictureBox1 = new System.Windows.Forms.PictureBox();
             this.pnlUsernameField = new VS_CUWSISMED.LoginInputPanel();
             this.picUsernameIcon = new System.Windows.Forms.PictureBox();
             this.txtusername = new System.Windows.Forms.TextBox();
@@ -35,11 +35,11 @@ namespace VS_CUWSISMED
             this.bttnshowpassword = new System.Windows.Forms.Button();
             this.bttnlogin = new VS_CUWSISMED.LoginPrimaryButton();
             this.pnlVisual = new System.Windows.Forms.Panel();
+            this.label1 = new System.Windows.Forms.Label();
             this.pnlAccent = new System.Windows.Forms.Panel();
             this.lblVisualTitle = new System.Windows.Forms.Label();
             this.lblVisualSub = new System.Windows.Forms.Label();
             this.lblVisualFooter = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
             this.pnlLogin.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.pnlUsernameField.SuspendLayout();
@@ -79,16 +79,15 @@ namespace VS_CUWSISMED
             this.pnlLogin.Size = new System.Drawing.Size(448, 460);
             this.pnlLogin.TabIndex = 1;
             // 
-            // pictureBox1
+            // lblHint
             // 
-            this.pictureBox1.BackColor = System.Drawing.Color.Transparent;
-            this.pictureBox1.Image = global::VS_CUWSISMED.Properties.Resources.LOGO;
-            this.pictureBox1.Location = new System.Drawing.Point(-63, -40);
-            this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(560, 295);
-            this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this.pictureBox1.TabIndex = 0;
-            this.pictureBox1.TabStop = false;
+            this.lblHint.Font = new System.Drawing.Font("Segoe UI", 9.5F);
+            this.lblHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(92)))), ((int)(((byte)(104)))), ((int)(((byte)(128)))));
+            this.lblHint.Location = new System.Drawing.Point(57, 233);
+            this.lblHint.Name = "lblHint";
+            this.lblHint.Size = new System.Drawing.Size(338, 22);
+            this.lblHint.TabIndex = 2;
+            this.lblHint.Text = "Zaloguj się do panelu obsługi pacjenta";
             // 
             // lblWelcome
             // 
@@ -100,15 +99,16 @@ namespace VS_CUWSISMED
             this.lblWelcome.TabIndex = 1;
             this.lblWelcome.Text = "Witaj w CUW SISMED";
             // 
-            // lblHint
+            // pictureBox1
             // 
-            this.lblHint.Font = new System.Drawing.Font("Segoe UI", 9.5F);
-            this.lblHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(92)))), ((int)(((byte)(104)))), ((int)(((byte)(128)))));
-            this.lblHint.Location = new System.Drawing.Point(54, 233);
-            this.lblHint.Name = "lblHint";
-            this.lblHint.Size = new System.Drawing.Size(338, 22);
-            this.lblHint.TabIndex = 2;
-            this.lblHint.Text = "Zaloguj się do panelu obsługi pacjenta";
+            this.pictureBox1.BackColor = System.Drawing.Color.Transparent;
+            this.pictureBox1.Image = global::VS_CUWSISMED.Properties.Resources.LOGO;
+            this.pictureBox1.Location = new System.Drawing.Point(-60, -40);
+            this.pictureBox1.Name = "pictureBox1";
+            this.pictureBox1.Size = new System.Drawing.Size(560, 295);
+            this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.pictureBox1.TabIndex = 0;
+            this.pictureBox1.TabStop = false;
             // 
             // pnlUsernameField
             // 
@@ -224,6 +224,18 @@ namespace VS_CUWSISMED
             this.pnlVisual.Size = new System.Drawing.Size(312, 460);
             this.pnlVisual.TabIndex = 0;
             // 
+            // label1
+            // 
+            this.label1.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(178)))), ((int)(((byte)(194)))), ((int)(((byte)(228)))));
+            this.label1.Location = new System.Drawing.Point(15, 410);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(236, 50);
+            this.label1.TabIndex = 4;
+            this.label1.Text = "W razie problemów skontaktuj         się z administratorem.";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.label1.Click += new System.EventHandler(this.label1_Click);
+            // 
             // pnlAccent
             // 
             this.pnlAccent.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(218)))), ((int)(((byte)(0)))), ((int)(((byte)(148)))));
@@ -257,26 +269,16 @@ namespace VS_CUWSISMED
             // 
             this.lblVisualFooter.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
             this.lblVisualFooter.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(229)))), ((int)(((byte)(242)))));
-            this.lblVisualFooter.Location = new System.Drawing.Point(6, 386);
+            this.lblVisualFooter.Location = new System.Drawing.Point(15, 386);
             this.lblVisualFooter.Name = "lblVisualFooter";
             this.lblVisualFooter.Size = new System.Drawing.Size(236, 28);
             this.lblVisualFooter.TabIndex = 3;
             this.lblVisualFooter.Text = "CUW SISMED";
             // 
-            // label1
-            // 
-            this.label1.Font = new System.Drawing.Font("Segoe UI", 10F);
-            this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(178)))), ((int)(((byte)(194)))), ((int)(((byte)(228)))));
-            this.label1.Location = new System.Drawing.Point(6, 410);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(236, 50);
-            this.label1.TabIndex = 4;
-            this.label1.Text = "W razie problemów skontaktuj się z administratorem.";
-            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.label1.Click += new System.EventHandler(this.label1_Click);
-            // 
             // login_page
             // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(244)))), ((int)(((byte)(247)))), ((int)(((byte)(252)))));
             this.ClientSize = new System.Drawing.Size(760, 460);
             this.Controls.Add(this.pnlVisual);
@@ -285,6 +287,7 @@ namespace VS_CUWSISMED
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.MinimumSize = new System.Drawing.Size(760, 460);
             this.Name = "login_page";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "CUW SISMED - logowanie";

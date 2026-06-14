@@ -32,10 +32,14 @@ namespace VS_CUWSISMED
             SuspendLayout();
 
             BackColor = SismedTheme.Surface;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScroll = true;
             ClientSize = new Size(760, 520);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            MinimumSize = new Size(620, 420);
             StartPosition = FormStartPosition.CenterParent;
             Text = "Kalendarz wizyt SISMED";
 
@@ -73,6 +77,7 @@ namespace VS_CUWSISMED
             dgvCalendar.RowHeadersVisible = false;
             dgvCalendar.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvCalendar.Size = new Size(724, 444);
+            dgvCalendar.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             dgvCalendar.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "colTime",

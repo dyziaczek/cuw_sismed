@@ -38,11 +38,13 @@ namespace VS_CUWSISMED
 
             SuspendLayout();
 
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = surface;
             ClientSize = new Size(1280, 760);
             DoubleBuffered = true;
             FormBorderStyle = FormBorderStyle.None;
-            MinimumSize = new Size(1100, 680);
+            MinimumSize = new Size(1024, 640);
             StartPosition = FormStartPosition.CenterScreen;
             Text = "CUW SISMED";
             WindowState = FormWindowState.Maximized;
@@ -170,6 +172,7 @@ namespace VS_CUWSISMED
             {
                 Dock = DockStyle.Fill,
                 BackColor = surface,
+                AutoScroll = true,
                 Padding = new Padding(SismedTheme.Padding)
             };
 
@@ -462,7 +465,7 @@ namespace VS_CUWSISMED
         {
             tabPatient = new TabPage { Text = "Panel pacjenta", BackColor = Color.White, Padding = new Padding(16) };
 
-            var patientLayout = new TableLayoutPanel
+            patientLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
@@ -1309,7 +1312,7 @@ namespace VS_CUWSISMED
         private Panel pnlPatientPlannedPanel, pnlPatientHistoryPanel, pnlPatientBookingPanel, pnlPatientBookingTop;
         private Panel pnlPatientPlannedDetails;
         private Panel pnlReservedActions, pnlPersonnelTop, pnlEmployeeDetails, pnlCalendarDetails;
-        private TableLayoutPanel pnlDashboardCards;
+        private TableLayoutPanel pnlDashboardCards, patientLayout;
         private Panel pnlPatientDetailsPanel, pnlPatientActionHost, pnlDocumentsTop, pnlDocumentDetails;
         private PictureBox picLogo;
         private Label lblNavTitle, lblNavSection, lblScreenTitle, lblCurrentUser, lblPersonnelAccess;

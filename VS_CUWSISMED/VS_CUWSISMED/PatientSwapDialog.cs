@@ -32,14 +32,20 @@ namespace VS_CUWSISMED
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScroll = true;
             ClientSize = new Size(760, 520);
+            MinimumSize = new Size(620, 460);
             BackColor = SismedTheme.Surface;
+            Shown += (sender, args) => SismedTheme.FitFormToWorkingArea(this);
 
             var title = new Label
             {
                 Text = "Wyszukaj nowego pacjenta",
                 Location = new Point(24, 18),
                 Size = new Size(420, 30),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 Font = SismedTheme.Font(15f, FontStyle.Bold),
                 ForeColor = SismedTheme.Navy
             };

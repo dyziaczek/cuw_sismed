@@ -18,6 +18,7 @@ namespace VS_CUWSISMED
         {
             this.dataStore = dataStore;
             InitializeComponent();
+            Shown += (sender, args) => SismedTheme.FitFormToWorkingArea(this);
 
             if (DesignTimeHelper.IsActive || dataStore == null)
             {

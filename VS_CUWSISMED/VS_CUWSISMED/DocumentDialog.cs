@@ -36,14 +36,20 @@ namespace VS_CUWSISMED
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
+            AutoScaleDimensions = new SizeF(96F, 96F);
+            AutoScaleMode = AutoScaleMode.Dpi;
+            AutoScroll = true;
             ClientSize = new Size(640, 560);
+            MinimumSize = new Size(520, 460);
             BackColor = SismedTheme.Surface;
+            Shown += (sender, args) => SismedTheme.FitFormToWorkingArea(this);
 
             var title = new Label
             {
                 Text = document == null ? "Nowy dokument" : "Edycja dokumentu",
                 Location = new Point(24, 20),
                 Size = new Size(430, 34),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 Font = SismedTheme.Font(16f, FontStyle.Bold),
                 ForeColor = SismedTheme.Navy
             };
@@ -56,6 +62,7 @@ namespace VS_CUWSISMED
                 Text = "Status",
                 Location = new Point(408, 100),
                 Size = new Size(180, 20),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Font = SismedTheme.Font(8.5f, FontStyle.Bold),
                 ForeColor = SismedTheme.Muted
             };
@@ -64,6 +71,7 @@ namespace VS_CUWSISMED
             {
                 Location = new Point(408, 124),
                 Size = new Size(208, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = SismedTheme.Font(9f),
                 Enabled = allowStatusSelection
@@ -86,6 +94,7 @@ namespace VS_CUWSISMED
             {
                 Location = new Point(24, 204),
                 Size = new Size(592, 276),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 Font = SismedTheme.Font(10f),
@@ -98,7 +107,8 @@ namespace VS_CUWSISMED
             {
                 Text = "Zapisz",
                 Location = new Point(424, 504),
-                Size = new Size(90, 34)
+                Size = new Size(90, 34),
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
             SismedTheme.ApplySuccessButton(btnSave);
             btnSave.Click += btnSave_Click;
@@ -107,7 +117,8 @@ namespace VS_CUWSISMED
             {
                 Text = "Anuluj",
                 Location = new Point(526, 504),
-                Size = new Size(90, 34)
+                Size = new Size(90, 34),
+                Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
             SismedTheme.ApplySecondaryButton(btnCancel);
             btnCancel.Click += (sender, args) =>
@@ -130,7 +141,8 @@ namespace VS_CUWSISMED
             var textBox = new TextBox
             {
                 Location = new Point(left, top),
-                Size = new Size(width, 28)
+                Size = new Size(width, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
             SismedTheme.ApplyTextBox(textBox, placeholder);

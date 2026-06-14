@@ -18,6 +18,7 @@ namespace VS_CUWSISMED
         private SismedDocument selectedDocument;
         private string lastStatus;
         private string activePatientSection;
+        private bool isUpdatingResponsiveLayout;
 
         private const string PatientSectionMessages = "messages";
         private const string PatientSectionPlanned = "planned";
@@ -150,6 +151,7 @@ namespace VS_CUWSISMED
             currentEmployee = employee;
             InitializeComponent();
             MouseDown += MoveForm;
+            ConfigureResponsiveLayout();
 
             if (isDesignTime)
             {
@@ -178,6 +180,432 @@ namespace VS_CUWSISMED
             {
                 return currentEmployee != null && currentEmployee.IsAdministrator;
             }
+        }
+
+        private void ConfigureResponsiveLayout()
+        {
+            ConfigureResponsiveGrid(dgvSlots);
+            ConfigureResponsiveGrid(dgvReserved);
+            ConfigureResponsiveGrid(dgvPatientResults);
+            ConfigureResponsiveGrid(dgvPatientNotes);
+            ConfigureResponsiveGrid(dgvPatientPlanned);
+            ConfigureResponsiveGrid(dgvPatientHistory);
+            ConfigureResponsiveGrid(dgvPatientBookingSlots);
+            ConfigureResponsiveGrid(dgvCal);
+            ConfigureResponsiveGrid(dgvDocuments);
+            ConfigureResponsiveGrid(dgvEmployees);
+
+            pnlReceptionScreen.AutoScroll = true;
+            pnlCalendarScreen.AutoScroll = true;
+            pnlDocumentsScreen.AutoScroll = true;
+            pnlPersonnelScreen.AutoScroll = true;
+            pnlReceptionContent.AutoScroll = true;
+            pnlPatientDetailsPanel.AutoScroll = true;
+            pnlPatientActionBody.AutoScroll = true;
+            pnlCalendarDetails.AutoScroll = true;
+            pnlDocumentDetails.AutoScroll = true;
+            pnlEmployeeDetails.AutoScroll = true;
+
+            Resize -= main_app_Resize;
+            Resize += main_app_Resize;
+            pnlReceptionSidebar.Resize -= ResponsiveControl_Resize;
+            pnlReceptionSidebar.Resize += ResponsiveControl_Resize;
+            pnlBookTop.Resize -= ResponsiveControl_Resize;
+            pnlBookTop.Resize += ResponsiveControl_Resize;
+            pnlReservedActions.Resize -= ResponsiveControl_Resize;
+            pnlReservedActions.Resize += ResponsiveControl_Resize;
+            pnlPatientBookingTop.Resize -= ResponsiveControl_Resize;
+            pnlPatientBookingTop.Resize += ResponsiveControl_Resize;
+            pnlPatientPlannedDetails.Resize -= ResponsiveControl_Resize;
+            pnlPatientPlannedDetails.Resize += ResponsiveControl_Resize;
+            pnlCalTop.Resize -= ResponsiveControl_Resize;
+            pnlCalTop.Resize += ResponsiveControl_Resize;
+            pnlPersonnelTop.Resize -= ResponsiveControl_Resize;
+            pnlPersonnelTop.Resize += ResponsiveControl_Resize;
+            pnlDocumentsTop.Resize -= ResponsiveControl_Resize;
+            pnlDocumentsTop.Resize += ResponsiveControl_Resize;
+            pnlScreenHost.Resize -= ResponsiveControl_Resize;
+            pnlScreenHost.Resize += ResponsiveControl_Resize;
+
+            ApplyResponsiveLayout();
+        }
+
+        private void ConfigureResponsiveGrid(DataGridView grid)
+        {
+            if (grid == null)
+            {
+                return;
+            }
+
+            grid.ScrollBars = ScrollBars.Both;
+            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
+            grid.AllowUserToResizeColumns = true;
+        }
+
+        private void main_app_Resize(object sender, EventArgs e)
+        {
+            ApplyResponsiveLayout();
+        }
+
+        private void ResponsiveControl_Resize(object sender, EventArgs e)
+        {
+            ApplyResponsiveLayout();
+        }
+
+        private void ApplyResponsiveLayout()
+        {
+            if (pnlScreenHost == null || pnlNavigation == null)
+            {
+                return;
+            }
+
+            if (isUpdatingResponsiveLayout)
+            {
+                return;
+            }
+
+            isUpdatingResponsiveLayout = true;
+            SuspendLayout();
+            pnlScreenHost.SuspendLayout();
+            try
+            {
+                bool projectorWidth = ClientSize.Width > 0 && ClientSize.Width <= 1400;
+                int sidebarWidth = projectorWidth ? 252 : SismedTheme.SidebarWidth;
+                LayoutSidebar(sidebarWidth);
+
+                bool compactContent = pnlScreenHost.ClientSize.Width <= 1150;
+                if (pnlReceptionSidebar.Width != (compactContent ? 340 : 360))
+                {
+                    pnlReceptionSidebar.Width = compactContent ? 340 : 360;
+                }
+
+                if (pnlCalendarDetails.Width != (compactContent ? 300 : 330))
+                {
+                    pnlCalendarDetails.Width = compactContent ? 300 : 330;
+                }
+
+                if (patientLayout != null && patientLayout.ColumnStyles.Count > 0)
+                {
+                    float patientColumnWidth = compactContent ? 330F : 350F;
+                    if (Math.Abs(patientLayout.ColumnStyles[0].Width - patientColumnWidth) > 0.1F)
+                    {
+                        patientLayout.ColumnStyles[0].Width = patientColumnWidth;
+                    }
+                }
+
+                if (pnlPersonnelScreen != null && dgvEmployees != null)
+                {
+                    int employeeGridWidth = compactContent
+                        ? Math.Max(500, Math.Min(580, pnlPersonnelScreen.ClientSize.Width / 2))
+                        : 620;
+                    if (dgvEmployees.Width != employeeGridWidth)
+                    {
+                        dgvEmployees.Width = employeeGridWidth;
+                    }
+                }
+
+                LayoutReceptionSidebar();
+                LayoutLegacyBookingTop();
+                LayoutReservedActions();
+                LayoutPatientBookingTop();
+                LayoutPatientPlannedDetails();
+                LayoutPatientNoteEditor();
+                LayoutCalendarTop();
+                LayoutPersonnelTop();
+                LayoutDocumentsTop();
+            }
+            finally
+            {
+                pnlScreenHost.ResumeLayout(false);
+                ResumeLayout(false);
+                isUpdatingResponsiveLayout = false;
+            }
+        }
+
+        private void LayoutSidebar(int width)
+        {
+            pnlNavigation.Width = width;
+
+            int horizontalMargin = 12;
+            int logoWidth = Math.Max(220, width - (horizontalMargin * 2));
+            int logoHeight = width <= 260 ? 150 : 168;
+            picLogo.SetBounds(horizontalMargin, 8, logoWidth, logoHeight);
+
+            lblNavTitle.SetBounds(20, picLogo.Bottom + 2, Math.Max(180, width - 40), 20);
+            lblNavSection.SetBounds(28, lblNavTitle.Bottom + 22, Math.Max(170, width - 56), 18);
+
+            int navTop = lblNavSection.Bottom + 12;
+            LayoutNavButton(btnNavCalendar, navTop, width);
+            LayoutNavButton(btnNavReception, navTop + 54, width);
+            LayoutNavButton(btnNavDocuments, navTop + 108, width);
+            LayoutNavButton(btnNavPersonnel, navTop + 162, width);
+
+            btnLogout.SetBounds(20, btnLogout.Top, Math.Max(180, width - 40), btnLogout.Height);
+        }
+
+        private void LayoutNavButton(Button button, int top, int sidebarWidth)
+        {
+            button.SetBounds(20, top, Math.Max(180, sidebarWidth - 40), 44);
+        }
+
+        private void LayoutReceptionSidebar()
+        {
+            if (pnlReceptionSidebar == null || txtPatientPesel == null)
+            {
+                return;
+            }
+
+            int innerWidth = Math.Max(292, pnlReceptionSidebar.ClientSize.Width - 36);
+            int halfWidth = Math.Max(132, (innerWidth - 16) / 2);
+            int secondLeft = 18 + halfWidth + 16;
+
+            txtPatientPesel.SetBounds(18, 92, innerWidth, 36);
+            txtPatientFirstName.SetBounds(18, 136, halfWidth, 36);
+            txtPatientLastName.SetBounds(secondLeft, 136, halfWidth, 36);
+            txtPatientBirthDate.SetBounds(18, 180, innerWidth, 36);
+            txtPatientPhone.SetBounds(18, 224, halfWidth, 36);
+            txtPatientEmail.SetBounds(secondLeft, 224, halfWidth, 36);
+            btnSearch.SetBounds(18, 278, halfWidth, 36);
+            btnClearPatientSearch.SetBounds(secondLeft, 278, halfWidth, 36);
+            btnAddPatient.SetBounds(18, 326, innerWidth, 36);
+            pnlPatientCard.SetBounds(18, 388, innerWidth, 272);
+
+            foreach (Control control in pnlPatientCard.Controls)
+            {
+                control.Width = Math.Max(220, innerWidth - 24);
+            }
+
+            pnlReceptionSidebar.AutoScrollMinSize = new Size(0, pnlPatientCard.Bottom + 18);
+        }
+
+        private void LayoutLegacyBookingTop()
+        {
+            if (pnlBookTop == null)
+            {
+                return;
+            }
+
+            int width = pnlBookTop.ClientSize.Width;
+            if (width < 560)
+            {
+                pnlBookTop.Height = 150;
+                lblBookDoctor.SetBounds(0, 16, 70, 22);
+                cmbDoctor.SetBounds(66, 10, Math.Max(210, width - 86), 28);
+                lblBookDate.SetBounds(0, 62, 70, 22);
+                dtpBook.SetBounds(66, 56, 150, 36);
+                btnLoadSlots.SetBounds(0, 104, Math.Min(220, Math.Max(180, width - 20)), 36);
+                return;
+            }
+
+            pnlBookTop.Height = 104;
+            lblBookDoctor.SetBounds(0, 16, 70, 22);
+            cmbDoctor.SetBounds(66, 10, Math.Min(270, width - 86), 28);
+            lblBookDate.SetBounds(0, 62, 70, 22);
+            dtpBook.SetBounds(66, 56, 150, 36);
+            btnLoadSlots.SetBounds(232, 56, 220, 36);
+        }
+
+        private void LayoutReservedActions()
+        {
+            if (pnlReservedActions == null)
+            {
+                return;
+            }
+
+            int width = pnlReservedActions.ClientSize.Width;
+            if (width < 690)
+            {
+                pnlReservedActions.Height = 166;
+                btnCancel.SetBounds(16, 14, 150, 36);
+                btnSwap.SetBounds(184, 14, Math.Min(180, Math.Max(150, width - 204)), 36);
+                txtSwapSearch.SetBounds(16, 64, Math.Max(180, Math.Min(250, width - 126)), 36);
+                btnSwapFind.SetBounds(txtSwapSearch.Right + 10, 64, 92, 36);
+                lblSwapResult.SetBounds(16, 108, Math.Max(220, width - 32), 28);
+                return;
+            }
+
+            pnlReservedActions.Height = 132;
+            btnCancel.SetBounds(16, 16, 150, 36);
+            btnSwap.SetBounds(184, 16, 180, 36);
+            txtSwapSearch.SetBounds(16, 72, 250, 36);
+            btnSwapFind.SetBounds(276, 72, 92, 36);
+            lblSwapResult.SetBounds(382, 78, Math.Max(180, width - 398), 24);
+        }
+
+        private void LayoutPatientBookingTop()
+        {
+            if (pnlPatientBookingTop == null)
+            {
+                return;
+            }
+
+            int width = pnlPatientBookingTop.ClientSize.Width;
+            if (width < 790)
+            {
+                pnlPatientBookingTop.Height = 184;
+                int comboWidth = Math.Max(170, width - 220);
+                lblPatientBookingService.SetBounds(12, 18, 70, 22);
+                cmbPatientBookingService.SetBounds(88, 12, comboWidth, 28);
+                btnPatientBookingNext.SetBounds(Math.Max(88 + comboWidth + 12, width - 108), 12, 96, 36);
+
+                lblPatientBookingDoctor.SetBounds(12, 62, 70, 22);
+                cmbPatientBookingDoctor.SetBounds(88, 56, Math.Max(210, width - 100), 28);
+
+                lblPatientBookingRange.SetBounds(12, 106, 70, 22);
+                cmbPatientBookingRange.SetBounds(88, 100, 120, 28);
+                btnPatientBookingSearch.SetBounds(224, 100, Math.Min(154, Math.Max(130, width - 236)), 36);
+                lblPatientBookingInfo.SetBounds(12, 148, Math.Max(260, width - 24), 28);
+                return;
+            }
+
+            pnlPatientBookingTop.Height = 136;
+            lblPatientBookingService.SetBounds(12, 18, 70, 22);
+            cmbPatientBookingService.SetBounds(88, 12, 300, 28);
+            btnPatientBookingNext.SetBounds(404, 12, 96, 36);
+            lblPatientBookingDoctor.SetBounds(12, 64, 70, 22);
+            cmbPatientBookingDoctor.SetBounds(88, 58, 300, 28);
+            lblPatientBookingRange.SetBounds(404, 64, 70, 22);
+            cmbPatientBookingRange.SetBounds(470, 58, 120, 28);
+            btnPatientBookingSearch.SetBounds(606, 58, 154, 36);
+            lblPatientBookingInfo.SetBounds(12, 104, Math.Max(320, width - 24), 24);
+        }
+
+        private void LayoutPatientNoteEditor()
+        {
+            if (txtPatientNote == null || txtPatientNote.Parent == null)
+            {
+                return;
+            }
+
+            Panel editor = txtPatientNote.Parent as Panel;
+            if (editor == null)
+            {
+                return;
+            }
+
+            int width = editor.ClientSize.Width;
+            if (width < 590)
+            {
+                editor.Height = 152;
+                txtPatientNote.SetBounds(12, 12, Math.Max(240, width - 24), 78);
+                btnAddPatientNote.SetBounds(12, 104, 150, 36);
+                btnDeletePatientNote.SetBounds(174, 104, 150, 36);
+                return;
+            }
+
+            editor.Height = 112;
+            int buttonsLeft = Math.Max(392, width - 174);
+            btnAddPatientNote.SetBounds(buttonsLeft, 14, 150, 36);
+            btnDeletePatientNote.SetBounds(buttonsLeft, 58, 150, 36);
+            txtPatientNote.SetBounds(12, 12, Math.Max(240, buttonsLeft - 28), 82);
+        }
+
+        private void LayoutPatientPlannedDetails()
+        {
+            if (pnlPatientPlannedDetails == null)
+            {
+                return;
+            }
+
+            int width = pnlPatientPlannedDetails.ClientSize.Width;
+            if (width < 760)
+            {
+                pnlPatientPlannedDetails.Height = 206;
+                lblPlannedAppointmentDetails.SetBounds(14, 12, Math.Max(240, width - 28), 66);
+                lblPlannedAppointmentTimeLeft.SetBounds(14, 82, Math.Max(240, width - 28), 22);
+                txtCancelAppointmentReason.SetBounds(14, 112, Math.Max(240, width - 28), 24);
+
+                if (width < 360)
+                {
+                    btnSwapPatientAppointment.SetBounds(14, 150, Math.Max(140, width - 28), 36);
+                    btnCancelPatientAppointment.SetBounds(14, 190, Math.Max(140, width - 28), 36);
+                    pnlPatientPlannedDetails.Height = 246;
+                    return;
+                }
+
+                btnSwapPatientAppointment.SetBounds(14, 154, 140, 36);
+                btnCancelPatientAppointment.SetBounds(Math.Max(168, width - 164), 154, 150, 36);
+                return;
+            }
+
+            pnlPatientPlannedDetails.Height = 162;
+            lblPlannedAppointmentDetails.SetBounds(14, 12, Math.Max(520, width - 28), 74);
+            lblPlannedAppointmentTimeLeft.SetBounds(14, 88, Math.Max(520, width - 28), 22);
+            btnCancelPatientAppointment.SetBounds(width - 170, 114, 150, 36);
+            btnSwapPatientAppointment.SetBounds(btnCancelPatientAppointment.Left - 154, 114, 140, 36);
+            txtCancelAppointmentReason.SetBounds(14, 118, Math.Max(240, btnSwapPatientAppointment.Left - 32), 24);
+        }
+
+        private void LayoutCalendarTop()
+        {
+            if (pnlCalTop == null)
+            {
+                return;
+            }
+
+            int width = pnlCalTop.ClientSize.Width;
+            if (width < 850)
+            {
+                pnlCalTop.Height = 138;
+                lblCalDoctor.SetBounds(18, 20, 64, 22);
+                cmbCalDoctor.SetBounds(82, 14, Math.Min(280, Math.Max(220, width - 100)), 28);
+                lblCalDate.SetBounds(18, 58, 64, 22);
+                dtpCal.SetBounds(82, 52, 150, 36);
+                lblCalService.SetBounds(260, 58, 64, 22);
+                cmbCalService.SetBounds(324, 52, Math.Min(240, Math.Max(190, width - 342)), 28);
+                lblCalStatus.SetBounds(18, 96, 64, 22);
+                cmbCalStatus.SetBounds(82, 90, 180, 28);
+                btnLoadCal.SetBounds(Math.Min(282, Math.Max(18, width - 178)), 88, 160, 36);
+                return;
+            }
+
+            pnlCalTop.Height = 92;
+            lblCalDoctor.SetBounds(18, 24, 70, 22);
+            cmbCalDoctor.SetBounds(82, 18, 280, 28);
+            lblCalDate.SetBounds(382, 24, 70, 22);
+            dtpCal.SetBounds(436, 18, 150, 36);
+            lblCalService.SetBounds(18, 62, 70, 22);
+            cmbCalService.SetBounds(82, 56, 280, 28);
+            lblCalStatus.SetBounds(382, 62, 70, 22);
+            cmbCalStatus.SetBounds(436, 56, 180, 28);
+            btnLoadCal.SetBounds(642, 36, 160, 36);
+        }
+
+        private void LayoutPersonnelTop()
+        {
+            if (pnlPersonnelTop == null)
+            {
+                return;
+            }
+
+            int width = pnlPersonnelTop.ClientSize.Width;
+            if (width < 950)
+            {
+                pnlPersonnelTop.Height = 124;
+                int searchWidth = Math.Max(260, Math.Min(420, width - 150));
+                txtEmployeeSearch.SetBounds(18, 20, searchWidth, 36);
+                btnEmployeeSearch.SetBounds(txtEmployeeSearch.Right + 14, 20, 110, 36);
+                btnAddEmployee.SetBounds(18, 70, 180, 36);
+                btnDeactivateEmployee.SetBounds(212, 70, 140, 36);
+                return;
+            }
+
+            pnlPersonnelTop.Height = 78;
+            txtEmployeeSearch.SetBounds(18, 20, 420, 36);
+            btnEmployeeSearch.SetBounds(452, 20, 110, 36);
+            btnAddEmployee.SetBounds(580, 20, 180, 36);
+            btnDeactivateEmployee.SetBounds(774, 20, 140, 36);
+        }
+
+        private void LayoutDocumentsTop()
+        {
+            if (pnlDocumentsTop == null || txtDocumentSearch == null)
+            {
+                return;
+            }
+
+            int width = pnlDocumentsTop.ClientSize.Width;
+            txtDocumentSearch.Width = Math.Max(240, Math.Min(340, width - 520));
         }
 
         private void ConfigureCurrentUser()
