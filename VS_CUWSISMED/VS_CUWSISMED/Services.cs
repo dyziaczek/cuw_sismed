@@ -20,9 +20,11 @@ namespace VS_CUWSISMED
         IReadOnlyList<Appointment> GetAppointmentsForPatient(int patientId);
         IReadOnlyList<Appointment> GetAllAppointmentsForPatient(int patientId);
         int GetPatientCount();
+        IReadOnlyList<Patient> GetPatients();
         IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria);
         Patient FindPatient(string query);
         Patient AddPatient(Patient patient);
+        Patient UpdatePatient(Patient patient);
         Patient GetPatient(int patientId);
         IReadOnlyList<PatientNote> GetPatientNotes(int patientId);
         PatientNote AddPatientNote(int patientId, string text, string createdByEmployee);
@@ -41,6 +43,7 @@ namespace VS_CUWSISMED
         Employee GetEmployee(int employeeId);
         IReadOnlyList<Employee> SearchEmployees(string query);
         Employee AddEmployee(Employee employee);
+        Employee UpdateEmployee(Employee employee);
         void DeactivateEmployee(int employeeId);
     }
 
@@ -246,6 +249,113 @@ namespace VS_CUWSISMED
             dataStore.DeactivateEmployee(employeeId);
         }
 
+        public RegistrationResult UpdateEmployee(
+            Employee currentEmployee,
+            Employee employee,
+            string newPassword,
+            string repeatedPassword)
+        {
+            try
+            {
+                EnsureAdministrator(currentEmployee);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return RegistrationResult.Fail(ex.Message);
+            }
+
+            if (employee == null)
+            {
+                return RegistrationResult.Fail("Nie wybrano pracownika.");
+            }
+
+            Employee existing = dataStore.GetEmployee(employee.Id);
+            if (existing == null)
+            {
+                return RegistrationResult.Fail("Nie znaleziono pracownika.");
+            }
+
+            string login = (employee.Login ?? string.Empty).Trim();
+            string firstName = (employee.FirstName ?? string.Empty).Trim();
+            string lastName = (employee.LastName ?? string.Empty).Trim();
+            string pesel = (employee.Pesel ?? string.Empty).Trim();
+            string role = EmployeeRoles.Normalize(employee.Role);
+            string specialization = (employee.Specialization ?? string.Empty).Trim();
+
+            if (login.Length < 3)
+            {
+                return RegistrationResult.Fail("Login musi miec co najmniej 3 znaki.");
+            }
+
+            if (firstName.Length < 2 || lastName.Length < 2)
+            {
+                return RegistrationResult.Fail("Podaj imie i nazwisko pracownika.");
+            }
+
+            if (pesel.Length > 0 && (pesel.Length != 11 || !pesel.All(char.IsDigit)))
+            {
+                return RegistrationResult.Fail("PESEL musi skladac sie z 11 cyfr.");
+            }
+
+            if (employee.IsDoctor && specialization.Length == 0)
+            {
+                return RegistrationResult.Fail("Podaj specjalizacje lekarza.");
+            }
+
+            Employee loginOwner = dataStore.FindEmployeeByLogin(login);
+            if (loginOwner != null && loginOwner.Id != employee.Id)
+            {
+                return RegistrationResult.Fail("Pracownik o takim loginie juz istnieje.");
+            }
+
+            string salt = existing.PasswordSalt;
+            string hash = existing.PasswordHash;
+            bool changePassword = !string.IsNullOrEmpty(newPassword) || !string.IsNullOrEmpty(repeatedPassword);
+            if (changePassword)
+            {
+                if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 4)
+                {
+                    return RegistrationResult.Fail("Nowe haslo musi miec co najmniej 4 znaki.");
+                }
+
+                if (!string.Equals(newPassword, repeatedPassword, StringComparison.Ordinal))
+                {
+                    return RegistrationResult.Fail("Nowe hasla nie sa identyczne.");
+                }
+
+                hash = PasswordHasher.CreateHash(newPassword, out salt);
+            }
+
+            var updated = new Employee
+            {
+                Id = existing.Id,
+                Login = login,
+                FirstName = firstName,
+                LastName = lastName,
+                Pesel = pesel,
+                BirthDate = employee.BirthDate,
+                DisplayName = string.Format("{0} {1}", firstName, lastName).Trim(),
+                Role = role,
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                CreatedAt = existing.CreatedAt,
+                IsActive = employee.IsActive,
+                IsDoctor = employee.IsDoctor,
+                Specialization = employee.IsDoctor ? specialization : string.Empty
+            };
+
+            try
+            {
+                return RegistrationResult.Ok(
+                    dataStore.UpdateEmployee(updated),
+                    "Konto pracownika zostało zaktualizowane.");
+            }
+            catch (Exception ex)
+            {
+                return RegistrationResult.Fail(ex.Message);
+            }
+        }
+
         private static void SplitDisplayName(string displayName, out string firstName, out string lastName)
         {
             string[] parts = (displayName ?? string.Empty)
@@ -428,6 +538,14 @@ namespace VS_CUWSISMED
             return patients.Count;
         }
 
+        public IReadOnlyList<Patient> GetPatients()
+        {
+            return patients
+                .OrderBy(p => p.LastName)
+                .ThenBy(p => p.FirstName)
+                .ToList();
+        }
+
         public IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria)
         {
             if (criteria == null || criteria.IsEmpty)
@@ -519,6 +637,37 @@ namespace VS_CUWSISMED
             }
 
             return patient;
+        }
+
+        public Patient UpdatePatient(Patient patient)
+        {
+            if (patient == null)
+            {
+                throw new ArgumentNullException("patient");
+            }
+
+            Patient existing = GetPatient(patient.Id);
+            if (existing == null)
+            {
+                throw new InvalidOperationException("Nie znaleziono pacjenta.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(patient.Pesel)
+                && patients.Any(p => p.Id != patient.Id
+                    && string.Equals(p.Pesel, patient.Pesel, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("Pacjent o podanym numerze PESEL juz istnieje.");
+            }
+
+            existing.FirstName = patient.FirstName;
+            existing.LastName = patient.LastName;
+            existing.Pesel = patient.Pesel;
+            existing.BirthDate = patient.BirthDate;
+            existing.Phone = patient.Phone;
+            existing.Email = patient.Email;
+            existing.Address = patient.Address;
+            existing.Notes = patient.Notes;
+            return existing;
         }
 
         public Patient GetPatient(int patientId)
@@ -805,6 +954,64 @@ namespace VS_CUWSISMED
             return employee;
         }
 
+        public Employee UpdateEmployee(Employee employee)
+        {
+            if (employee == null)
+            {
+                throw new ArgumentNullException("employee");
+            }
+
+            Employee existing = GetEmployee(employee.Id);
+            if (existing == null)
+            {
+                throw new InvalidOperationException("Nie znaleziono pracownika.");
+            }
+
+            Employee loginOwner = FindEmployeeByLogin(employee.Login);
+            if (loginOwner != null && loginOwner.Id != employee.Id)
+            {
+                throw new InvalidOperationException("Pracownik o takim loginie juz istnieje.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(employee.Pesel)
+                && employees.Any(e => e.Id != employee.Id
+                    && string.Equals(e.Pesel, employee.Pesel, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("Pracownik o podanym numerze PESEL juz istnieje.");
+            }
+
+            string normalizedRole = EmployeeRoles.Normalize(employee.Role);
+            int activeAdministratorsAfter = employees.Count(e =>
+            {
+                if (e.Id == employee.Id)
+                {
+                    return employee.IsActive
+                        && string.Equals(normalizedRole, EmployeeRoles.Administrator, StringComparison.OrdinalIgnoreCase);
+                }
+
+                return e.IsActive && e.IsAdministrator;
+            });
+
+            if (activeAdministratorsAfter <= 0)
+            {
+                throw new InvalidOperationException("Nie mozna pozostawic systemu bez aktywnego administratora.");
+            }
+
+            existing.Login = employee.Login;
+            existing.FirstName = employee.FirstName;
+            existing.LastName = employee.LastName;
+            existing.Pesel = employee.Pesel;
+            existing.BirthDate = employee.BirthDate;
+            existing.DisplayName = employee.FullName;
+            existing.Role = normalizedRole;
+            existing.PasswordHash = employee.PasswordHash;
+            existing.PasswordSalt = employee.PasswordSalt;
+            existing.IsActive = employee.IsActive;
+            existing.IsDoctor = employee.IsDoctor;
+            existing.Specialization = employee.IsDoctor ? employee.Specialization : string.Empty;
+            return existing;
+        }
+
         public void DeactivateEmployee(int employeeId)
         {
             Employee employee = GetEmployee(employeeId);
@@ -1051,6 +1258,11 @@ namespace VS_CUWSISMED
             return memory.GetPatientCount();
         }
 
+        public IReadOnlyList<Patient> GetPatients()
+        {
+            return memory.GetPatients();
+        }
+
         public IReadOnlyList<Patient> SearchPatients(PatientSearchCriteria criteria)
         {
             return memory.SearchPatients(criteria);
@@ -1075,6 +1287,13 @@ namespace VS_CUWSISMED
                 }
             }
 
+            return saved;
+        }
+
+        public Patient UpdatePatient(Patient patient)
+        {
+            Patient saved = memory.UpdatePatient(patient);
+            UpdatePatientRecord(saved);
             return saved;
         }
 
@@ -1167,7 +1386,10 @@ namespace VS_CUWSISMED
             if (patientId > 0)
             {
                 Patient patient = memory.GetPatient(patientId);
-                UpdatePatient(patient);
+                if (patient != null)
+                {
+                    UpdatePatientRecord(patient);
+                }
 
                 PatientWarning warning = memory.GetPatientWarnings(patientId)
                     .OrderByDescending(w => w.CreatedAt)
@@ -1212,6 +1434,13 @@ namespace VS_CUWSISMED
         public Employee AddEmployee(Employee employee)
         {
             Employee saved = memory.AddEmployee(employee);
+            InsertEmployee(saved);
+            return saved;
+        }
+
+        public Employee UpdateEmployee(Employee employee)
+        {
+            Employee saved = memory.UpdateEmployee(employee);
             InsertEmployee(saved);
             return saved;
         }
@@ -1379,7 +1608,9 @@ namespace VS_CUWSISMED
             foreach (Employee employee in seed.Employees)
             {
                 if (!EmployeeLoginExists(employee.Login)
-                    && (employee.IsAdministrator || string.Equals(employee.Login, "rejestrator", StringComparison.OrdinalIgnoreCase)))
+                    && (employee.IsAdministrator
+                        || employee.IsDoctor
+                        || string.Equals(employee.Login, "rejestrator", StringComparison.OrdinalIgnoreCase)))
                 {
                     InsertEmployee(employee);
                 }
@@ -1427,7 +1658,7 @@ namespace VS_CUWSISMED
                 SqlValue.Date(patient.BlockedUntil));
         }
 
-        private void UpdatePatient(Patient patient)
+        private void UpdatePatientRecord(Patient patient)
         {
             if (patient != null)
             {

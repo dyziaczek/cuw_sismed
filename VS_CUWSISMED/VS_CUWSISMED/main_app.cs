@@ -13,12 +13,14 @@ namespace VS_CUWSISMED
         private readonly IClinicDataStore dataStore;
         private readonly Employee currentEmployee;
         private Patient selectedPatient;
+        private Patient selectedDirectoryPatient;
         private Patient swapPatient;
         private Employee selectedEmployee;
         private SismedDocument selectedDocument;
         private string lastStatus;
         private string activePatientSection;
         private bool isUpdatingResponsiveLayout;
+        private bool isUpdatingCalendarFilters;
 
         private const string PatientSectionMessages = "messages";
         private const string PatientSectionPlanned = "planned";
@@ -152,6 +154,7 @@ namespace VS_CUWSISMED
             InitializeComponent();
             MouseDown += MoveForm;
             ConfigureResponsiveLayout();
+            ConfigurePatientSearchInputs();
 
             if (isDesignTime)
             {
@@ -169,8 +172,9 @@ namespace VS_CUWSISMED
             LoadCalendar();
             RefreshReservedAppointments();
             LoadEmployeeList(string.Empty);
+            LoadPatientDirectory();
             RefreshReceptionStats();
-            ShowReceptionScreen();
+            ShowSearchScreen();
             SetStatus("Gotowy");
         }
 
@@ -182,10 +186,78 @@ namespace VS_CUWSISMED
             }
         }
 
+        private void ConfigurePatientSearchInputs()
+        {
+            txtPatientPesel.MaxLength = 11;
+            txtPatientPhone.MaxLength = 9;
+            txtPatientBirthDate.MaxLength = 10;
+            txtPatientPesel.KeyPress -= DigitsOnly_KeyPress;
+            txtPatientPesel.KeyPress += DigitsOnly_KeyPress;
+            txtPatientPhone.KeyPress -= DigitsOnly_KeyPress;
+            txtPatientPhone.KeyPress += DigitsOnly_KeyPress;
+            txtPatientBirthDate.KeyPress -= DateOnly_KeyPress;
+            txtPatientBirthDate.KeyPress += DateOnly_KeyPress;
+            txtPatientBirthDate.TextChanged -= DateTextBox_TextChanged;
+            txtPatientBirthDate.TextChanged += DateTextBox_TextChanged;
+        }
+
+        private static void DigitsOnly_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private static void DateOnly_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar) && e.KeyChar != '-')
+            {
+                e.Handled = true;
+            }
+        }
+
+        private static void DateTextBox_TextChanged(object sender, EventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null)
+            {
+                return;
+            }
+
+            string digits = new string(textBox.Text.Where(char.IsDigit).Take(8).ToArray());
+            string formatted = FormatBirthDateInput(digits);
+            if (textBox.Text == formatted)
+            {
+                return;
+            }
+
+            textBox.Text = formatted;
+            textBox.SelectionStart = formatted.Length;
+        }
+
+        private static string FormatBirthDateInput(string digits)
+        {
+            if (digits.Length <= 2)
+            {
+                return digits;
+            }
+
+            if (digits.Length <= 4)
+            {
+                return digits.Substring(0, 2) + "-" + digits.Substring(2);
+            }
+
+            return digits.Substring(0, 2) + "-"
+                + digits.Substring(2, 2) + "-"
+                + digits.Substring(4);
+        }
+
         private void ConfigureResponsiveLayout()
         {
             ConfigureResponsiveGrid(dgvSlots);
             ConfigureResponsiveGrid(dgvReserved);
+            ConfigureResponsiveGrid(dgvSearchResults);
             ConfigureResponsiveGrid(dgvPatientResults);
             ConfigureResponsiveGrid(dgvPatientNotes);
             ConfigureResponsiveGrid(dgvPatientPlanned);
@@ -194,11 +266,14 @@ namespace VS_CUWSISMED
             ConfigureResponsiveGrid(dgvCal);
             ConfigureResponsiveGrid(dgvDocuments);
             ConfigureResponsiveGrid(dgvEmployees);
+            ConfigureResponsiveGrid(dgvPatients);
 
+            pnlSearchScreen.AutoScroll = true;
             pnlReceptionScreen.AutoScroll = true;
             pnlCalendarScreen.AutoScroll = true;
             pnlDocumentsScreen.AutoScroll = true;
             pnlPersonnelScreen.AutoScroll = true;
+            pnlPatientsScreen.AutoScroll = true;
             pnlReceptionContent.AutoScroll = true;
             pnlPatientDetailsPanel.AutoScroll = true;
             pnlPatientActionBody.AutoScroll = true;
@@ -208,8 +283,8 @@ namespace VS_CUWSISMED
 
             Resize -= main_app_Resize;
             Resize += main_app_Resize;
-            pnlReceptionSidebar.Resize -= ResponsiveControl_Resize;
-            pnlReceptionSidebar.Resize += ResponsiveControl_Resize;
+            pnlSearchTop.Resize -= ResponsiveControl_Resize;
+            pnlSearchTop.Resize += ResponsiveControl_Resize;
             pnlBookTop.Resize -= ResponsiveControl_Resize;
             pnlBookTop.Resize += ResponsiveControl_Resize;
             pnlReservedActions.Resize -= ResponsiveControl_Resize;
@@ -222,6 +297,8 @@ namespace VS_CUWSISMED
             pnlCalTop.Resize += ResponsiveControl_Resize;
             pnlPersonnelTop.Resize -= ResponsiveControl_Resize;
             pnlPersonnelTop.Resize += ResponsiveControl_Resize;
+            pnlPatientsTop.Resize -= ResponsiveControl_Resize;
+            pnlPatientsTop.Resize += ResponsiveControl_Resize;
             pnlDocumentsTop.Resize -= ResponsiveControl_Resize;
             pnlDocumentsTop.Resize += ResponsiveControl_Resize;
             pnlScreenHost.Resize -= ResponsiveControl_Resize;
@@ -274,22 +351,18 @@ namespace VS_CUWSISMED
                 LayoutSidebar(sidebarWidth);
 
                 bool compactContent = pnlScreenHost.ClientSize.Width <= 1150;
-                if (pnlReceptionSidebar.Width != (compactContent ? 340 : 360))
-                {
-                    pnlReceptionSidebar.Width = compactContent ? 340 : 360;
-                }
 
                 if (pnlCalendarDetails.Width != (compactContent ? 300 : 330))
                 {
                     pnlCalendarDetails.Width = compactContent ? 300 : 330;
                 }
 
-                if (patientLayout != null && patientLayout.ColumnStyles.Count > 0)
+                if (patientLayout != null && patientLayout.RowStyles.Count > 0)
                 {
-                    float patientColumnWidth = compactContent ? 330F : 350F;
-                    if (Math.Abs(patientLayout.ColumnStyles[0].Width - patientColumnWidth) > 0.1F)
+                    float cardHeight = compactContent ? 318F : 292F;
+                    if (Math.Abs(patientLayout.RowStyles[0].Height - cardHeight) > 0.1F)
                     {
-                        patientLayout.ColumnStyles[0].Width = patientColumnWidth;
+                        patientLayout.RowStyles[0].Height = cardHeight;
                     }
                 }
 
@@ -304,7 +377,18 @@ namespace VS_CUWSISMED
                     }
                 }
 
-                LayoutReceptionSidebar();
+                if (pnlPatientsScreen != null && dgvPatients != null)
+                {
+                    int patientsGridWidth = compactContent
+                        ? Math.Max(620, Math.Min(760, pnlPatientsScreen.ClientSize.Width - 320))
+                        : 840;
+                    if (dgvPatients.Width != patientsGridWidth)
+                    {
+                        dgvPatients.Width = patientsGridWidth;
+                    }
+                }
+
+                LayoutSearchScreen();
                 LayoutLegacyBookingTop();
                 LayoutReservedActions();
                 LayoutPatientBookingTop();
@@ -312,6 +396,7 @@ namespace VS_CUWSISMED
                 LayoutPatientNoteEditor();
                 LayoutCalendarTop();
                 LayoutPersonnelTop();
+                LayoutPatientsTop();
                 LayoutDocumentsTop();
             }
             finally
@@ -335,10 +420,12 @@ namespace VS_CUWSISMED
             lblNavSection.SetBounds(28, lblNavTitle.Bottom + 22, Math.Max(170, width - 56), 18);
 
             int navTop = lblNavSection.Bottom + 12;
-            LayoutNavButton(btnNavCalendar, navTop, width);
+            LayoutNavButton(btnNavSearch, navTop, width);
             LayoutNavButton(btnNavReception, navTop + 54, width);
-            LayoutNavButton(btnNavDocuments, navTop + 108, width);
-            LayoutNavButton(btnNavPersonnel, navTop + 162, width);
+            LayoutNavButton(btnNavCalendar, navTop + 108, width);
+            LayoutNavButton(btnNavDocuments, navTop + 162, width);
+            LayoutNavButton(btnNavPersonnel, navTop + 216, width);
+            LayoutNavButton(btnNavPatients, navTop + 270, width);
 
             btnLogout.SetBounds(20, btnLogout.Top, Math.Max(180, width - 40), btnLogout.Height);
         }
@@ -348,34 +435,44 @@ namespace VS_CUWSISMED
             button.SetBounds(20, top, Math.Max(180, sidebarWidth - 40), 44);
         }
 
-        private void LayoutReceptionSidebar()
+        private void LayoutSearchScreen()
         {
-            if (pnlReceptionSidebar == null || txtPatientPesel == null)
+            if (pnlSearchTop == null || txtPatientPesel == null)
             {
                 return;
             }
 
-            int innerWidth = Math.Max(292, pnlReceptionSidebar.ClientSize.Width - 36);
-            int halfWidth = Math.Max(132, (innerWidth - 16) / 2);
-            int secondLeft = 18 + halfWidth + 16;
+            int width = pnlSearchTop.ClientSize.Width;
+            int left = 42;
+            int available = Math.Max(320, width - 84);
 
-            txtPatientPesel.SetBounds(18, 92, innerWidth, 36);
-            txtPatientFirstName.SetBounds(18, 136, halfWidth, 36);
-            txtPatientLastName.SetBounds(secondLeft, 136, halfWidth, 36);
-            txtPatientBirthDate.SetBounds(18, 180, innerWidth, 36);
-            txtPatientPhone.SetBounds(18, 224, halfWidth, 36);
-            txtPatientEmail.SetBounds(secondLeft, 224, halfWidth, 36);
-            btnSearch.SetBounds(18, 278, halfWidth, 36);
-            btnClearPatientSearch.SetBounds(secondLeft, 278, halfWidth, 36);
-            btnAddPatient.SetBounds(18, 326, innerWidth, 36);
-            pnlPatientCard.SetBounds(18, 388, innerWidth, 272);
-
-            foreach (Control control in pnlPatientCard.Controls)
+            if (width < 930)
             {
-                control.Width = Math.Max(220, innerWidth - 24);
+                pnlSearchTop.Height = 360;
+                int half = Math.Max(180, (available - 18) / 2);
+                txtPatientPesel.SetBounds(left, 104, half, 36);
+                txtPatientFirstName.SetBounds(left + half + 18, 104, half, 36);
+                txtPatientLastName.SetBounds(left, 158, half, 36);
+                txtPatientBirthDate.SetBounds(left + half + 18, 158, half, 36);
+                txtPatientEmail.SetBounds(left, 212, half, 36);
+                txtPatientPhone.SetBounds(left + half + 18, 212, half, 36);
+                btnSearch.SetBounds(left, 276, 130, 36);
+                btnClearPatientSearch.SetBounds(left + 146, 276, 130, 36);
+                btnAddPatient.SetBounds(left + 292, 276, Math.Min(180, Math.Max(160, available - 292)), 36);
+                return;
             }
 
-            pnlReceptionSidebar.AutoScrollMinSize = new Size(0, pnlPatientCard.Bottom + 18);
+            pnlSearchTop.Height = 292;
+            int quarter = Math.Max(180, (available - 60) / 4);
+            txtPatientPesel.SetBounds(left, 108, quarter, 36);
+            txtPatientFirstName.SetBounds(left + quarter + 20, 108, quarter, 36);
+            txtPatientLastName.SetBounds(left + (quarter + 20) * 2, 108, quarter, 36);
+            txtPatientBirthDate.SetBounds(left + (quarter + 20) * 3, 108, quarter, 36);
+            txtPatientEmail.SetBounds(left, 166, Math.Max(260, quarter * 2), 36);
+            txtPatientPhone.SetBounds(txtPatientEmail.Right + 20, 166, quarter, 36);
+            btnSearch.SetBounds(left, 224, 130, 36);
+            btnClearPatientSearch.SetBounds(left + 146, 224, 130, 36);
+            btnAddPatient.SetBounds(left + 292, 224, 180, 36);
         }
 
         private void LayoutLegacyBookingTop()
@@ -544,31 +641,7 @@ namespace VS_CUWSISMED
             }
 
             int width = pnlCalTop.ClientSize.Width;
-            if (width < 850)
-            {
-                pnlCalTop.Height = 138;
-                lblCalDoctor.SetBounds(18, 20, 64, 22);
-                cmbCalDoctor.SetBounds(82, 14, Math.Min(280, Math.Max(220, width - 100)), 28);
-                lblCalDate.SetBounds(18, 58, 64, 22);
-                dtpCal.SetBounds(82, 52, 150, 36);
-                lblCalService.SetBounds(260, 58, 64, 22);
-                cmbCalService.SetBounds(324, 52, Math.Min(240, Math.Max(190, width - 342)), 28);
-                lblCalStatus.SetBounds(18, 96, 64, 22);
-                cmbCalStatus.SetBounds(82, 90, 180, 28);
-                btnLoadCal.SetBounds(Math.Min(282, Math.Max(18, width - 178)), 88, 160, 36);
-                return;
-            }
-
-            pnlCalTop.Height = 92;
-            lblCalDoctor.SetBounds(18, 24, 70, 22);
-            cmbCalDoctor.SetBounds(82, 18, 280, 28);
-            lblCalDate.SetBounds(382, 24, 70, 22);
-            dtpCal.SetBounds(436, 18, 150, 36);
-            lblCalService.SetBounds(18, 62, 70, 22);
-            cmbCalService.SetBounds(82, 56, 280, 28);
-            lblCalStatus.SetBounds(382, 62, 70, 22);
-            cmbCalStatus.SetBounds(436, 56, 180, 28);
-            btnLoadCal.SetBounds(642, 36, 160, 36);
+            pnlCalTop.Height = width < 850 ? 158 : 116;
         }
 
         private void LayoutPersonnelTop()
@@ -579,22 +652,62 @@ namespace VS_CUWSISMED
             }
 
             int width = pnlPersonnelTop.ClientSize.Width;
-            if (width < 950)
+            if (width < 600)
+            {
+                pnlPersonnelTop.Height = 170;
+                int searchWidth = Math.Max(260, width - 150);
+                txtEmployeeSearch.SetBounds(18, 20, searchWidth, 36);
+                btnEmployeeSearch.SetBounds(txtEmployeeSearch.Right + 14, 20, 110, 36);
+                btnAddEmployee.SetBounds(18, 70, 180, 36);
+                btnEditEmployee.SetBounds(212, 70, 140, 36);
+                btnDeactivateEmployee.SetBounds(18, 118, 140, 36);
+                return;
+            }
+
+            if (width < 1100)
             {
                 pnlPersonnelTop.Height = 124;
                 int searchWidth = Math.Max(260, Math.Min(420, width - 150));
                 txtEmployeeSearch.SetBounds(18, 20, searchWidth, 36);
                 btnEmployeeSearch.SetBounds(txtEmployeeSearch.Right + 14, 20, 110, 36);
                 btnAddEmployee.SetBounds(18, 70, 180, 36);
-                btnDeactivateEmployee.SetBounds(212, 70, 140, 36);
+                btnEditEmployee.SetBounds(212, 70, 140, 36);
+                btnDeactivateEmployee.SetBounds(366, 70, 140, 36);
                 return;
             }
 
             pnlPersonnelTop.Height = 78;
-            txtEmployeeSearch.SetBounds(18, 20, 420, 36);
-            btnEmployeeSearch.SetBounds(452, 20, 110, 36);
-            btnAddEmployee.SetBounds(580, 20, 180, 36);
-            btnDeactivateEmployee.SetBounds(774, 20, 140, 36);
+            txtEmployeeSearch.SetBounds(18, 20, 380, 36);
+            btnEmployeeSearch.SetBounds(412, 20, 110, 36);
+            btnAddEmployee.SetBounds(540, 20, 170, 36);
+            btnEditEmployee.SetBounds(724, 20, 140, 36);
+            btnDeactivateEmployee.SetBounds(878, 20, 140, 36);
+        }
+
+        private void LayoutPatientsTop()
+        {
+            if (pnlPatientsTop == null)
+            {
+                return;
+            }
+
+            int width = pnlPatientsTop.ClientSize.Width;
+            if (width < 760)
+            {
+                pnlPatientsTop.Height = 124;
+                int searchWidth = Math.Max(260, Math.Min(420, width - 150));
+                txtPatientsSearch.SetBounds(18, 20, searchWidth, 36);
+                btnPatientsSearch.SetBounds(txtPatientsSearch.Right + 14, 20, 110, 36);
+                cmbPatientsFilter.SetBounds(18, 72, Math.Max(240, Math.Min(320, width - 260)), 28);
+                btnPatientsClear.SetBounds(cmbPatientsFilter.Right + 14, 70, 110, 36);
+                return;
+            }
+
+            pnlPatientsTop.Height = 78;
+            txtPatientsSearch.SetBounds(18, 20, Math.Max(300, Math.Min(380, width - 520)), 36);
+            cmbPatientsFilter.SetBounds(txtPatientsSearch.Right + 14, 24, 220, 28);
+            btnPatientsSearch.SetBounds(cmbPatientsFilter.Right + 18, 20, 110, 36);
+            btnPatientsClear.SetBounds(btnPatientsSearch.Right + 14, 20, 110, 36);
         }
 
         private void LayoutDocumentsTop()
@@ -611,11 +724,12 @@ namespace VS_CUWSISMED
         private void ConfigureCurrentUser()
         {
             btnAddEmployee.Visible = IsCurrentUserAdministrator;
+            btnEditEmployee.Visible = IsCurrentUserAdministrator;
             btnDeactivateEmployee.Visible = IsCurrentUserAdministrator;
             btnArchiveDocument.Visible = IsCurrentUserAdministrator;
             lblPersonnelAccess.Text = IsCurrentUserAdministrator
                 ? string.Empty
-                : "Tryb podgladu: tylko administrator moze dodawac i dezaktywowac konta.";
+                : "Tryb podgladu: tylko administrator moze dodawac, edytowac i dezaktywowac konta.";
             UpdateCurrentUserLabel();
         }
 
@@ -626,6 +740,11 @@ namespace VS_CUWSISMED
                 ReleaseCapture();
                 SendMessage(Handle, 0x112, 0xf012, 0);
             }
+        }
+
+        private void btnNavSearch_Click(object sender, EventArgs e)
+        {
+            ShowSearchScreen();
         }
 
         private void btnNavReception_Click(object sender, EventArgs e)
@@ -651,17 +770,30 @@ namespace VS_CUWSISMED
             LoadEmployeeList(txtEmployeeSearch.Text);
         }
 
+        private void btnNavPatients_Click(object sender, EventArgs e)
+        {
+            ShowScreen(pnlPatientsScreen, "PACJENCI");
+            LoadPatientDirectory();
+        }
+
         private void ShowReceptionScreen()
         {
             ShowScreen(pnlReceptionScreen, "RECEPCJA");
         }
 
+        private void ShowSearchScreen()
+        {
+            ShowScreen(pnlSearchScreen, "SZUKAJ");
+        }
+
         private void ShowScreen(Panel panel, string title)
         {
+            pnlSearchScreen.Visible = false;
             pnlReceptionScreen.Visible = false;
             pnlCalendarScreen.Visible = false;
             pnlDocumentsScreen.Visible = false;
             pnlPersonnelScreen.Visible = false;
+            pnlPatientsScreen.Visible = false;
 
             panel.Visible = true;
             panel.BringToFront();
@@ -671,10 +803,12 @@ namespace VS_CUWSISMED
 
         private void SetActiveNav(string title)
         {
+            btnNavSearch.BackColor = title == "SZUKAJ" ? SismedTheme.Magenta : SismedTheme.NavyDark;
             btnNavCalendar.BackColor = title == "KALENDARZ WIZYT" ? SismedTheme.Magenta : SismedTheme.NavyDark;
             btnNavReception.BackColor = title == "RECEPCJA" ? SismedTheme.Magenta : SismedTheme.NavyDark;
             btnNavDocuments.BackColor = title == "DOKUMENTY" ? SismedTheme.Magenta : SismedTheme.NavyDark;
             btnNavPersonnel.BackColor = title == "PERSONEL" ? SismedTheme.Magenta : SismedTheme.NavyDark;
+            btnNavPatients.BackColor = title == "PACJENCI" ? SismedTheme.Magenta : SismedTheme.NavyDark;
         }
 
         private void btnSearch_Click(object sender, EventArgs e)
@@ -695,7 +829,7 @@ namespace VS_CUWSISMED
                 selectedPatient = null;
                 RefreshPatientCard(null);
                 RefreshReservedAppointments();
-                ShowPatientEmptyPanel("Nie znaleziono pacjenta dla podanych kryteriów.");
+                ShowSearchResults(patients, "Nie znaleziono pacjenta dla podanych kryteriów.");
                 SetStatus("Nie znaleziono pacjenta.");
                 return;
             }
@@ -704,13 +838,14 @@ namespace VS_CUWSISMED
             {
                 SelectPatient(patients[0], true);
                 SetStatus("Wybrano pacjenta: " + selectedPatient.DisplayName);
+                ShowReceptionScreen();
                 return;
             }
 
             selectedPatient = null;
             RefreshPatientCard(null);
             RefreshReservedAppointments();
-            ShowPatientSearchResults(patients);
+            ShowSearchResults(patients, "Znaleziono " + patients.Count + " pacjentów. Kliknij wybrany wiersz, aby otworzyć kartę.");
             SetStatus("Znaleziono " + patients.Count + " pacjentow. Wybierz pacjenta z listy wynikow.");
         }
 
@@ -728,7 +863,8 @@ namespace VS_CUWSISMED
             btnSwap.Enabled = false;
             RefreshPatientCard(null);
             RefreshReservedAppointments();
-            ShowPatientEmptyPanel("Wyszukaj pacjenta, aby zobaczyć kartę, notatki i wizyty.");
+            ShowSearchResults(new List<Patient>(), "Wyniki pojawią się tutaj, jeśli wyszukiwanie zwróci więcej niż jednego pacjenta.");
+            ShowSearchScreen();
             SetStatus("Wyczyszczono wyszukiwanie pacjenta.");
         }
 
@@ -746,6 +882,7 @@ namespace VS_CUWSISMED
                     Patient savedPatient = dataStore.AddPatient(dialog.Patient);
                     SelectPatient(savedPatient, true);
                     RefreshReceptionStats();
+                    ShowReceptionScreen();
                     SetStatus("Dodano pacjenta: " + selectedPatient.DisplayName);
                 }
                 catch (Exception ex)
@@ -775,7 +912,7 @@ namespace VS_CUWSISMED
 
             if (!InputValidation.TryParseBirthDate(txtPatientBirthDate.Text, out birthDate))
             {
-                ShowError("Data urodzenia musi miec format dd.MM.yyyy albo dd-MM-yyyy.");
+                ShowError("Data urodzenia musi miec format dd-MM-yyyy.");
                 return false;
             }
 
@@ -821,7 +958,7 @@ namespace VS_CUWSISMED
             txtPatientFirstName.Text = patient.FirstName ?? string.Empty;
             txtPatientLastName.Text = patient.LastName ?? string.Empty;
             txtPatientBirthDate.Text = patient.BirthDate.HasValue
-                ? patient.BirthDate.Value.ToString("dd.MM.yyyy")
+                ? patient.BirthDate.Value.ToString("dd-MM-yyyy")
                 : string.Empty;
             txtPatientPhone.Text = patient.Phone ?? string.Empty;
             txtPatientEmail.Text = patient.Email ?? string.Empty;
@@ -896,66 +1033,6 @@ namespace VS_CUWSISMED
             ShowReceptionScreen();
             SelectPatient(row.Patient, true);
             ShowPatientPlannedPanel();
-        }
-
-        private void btnCalendarCancelAppointment_Click(object sender, EventArgs e)
-        {
-            CalendarSlotRow row = GetSelectedCalendarRow();
-            if (row == null || row.Appointment == null || row.Appointment.Status != AppointmentStatus.Reserved)
-            {
-                ShowError("Wybierz zarezerwowaną wizytę.");
-                return;
-            }
-
-            string reason = txtCalendarCancelReason.Text.Trim();
-            if (string.IsNullOrWhiteSpace(reason))
-            {
-                ShowError("Podaj powód anulowania wizyty.");
-                return;
-            }
-
-            bool lateCancellation = row.Appointment.StartAt > DateTime.Now
-                && row.Appointment.StartAt.Subtract(DateTime.Now).TotalHours < 12;
-
-            DialogResult result = MessageBox.Show(
-                "Czy anulować wizytę pacjenta "
-                + (row.Patient == null ? "-" : row.Patient.DisplayName)
-                + "?"
-                + Environment.NewLine
-                + (lateCancellation
-                    ? "Anulowanie mniej niż 12 godzin przed terminem doda ostrzeżenie."
-                    : "Anulowanie bez ostrzeżenia."),
-                "SISMED",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result != DialogResult.Yes)
-            {
-                return;
-            }
-
-            try
-            {
-                dataStore.CancelAppointment(row.Appointment.Id, reason);
-                if (selectedPatient != null)
-                {
-                    selectedPatient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
-                    RefreshPatientCard(selectedPatient);
-                    RefreshReservedAppointments();
-                    RefreshActivePatientSection();
-                }
-
-                txtCalendarCancelReason.Text = string.Empty;
-                LoadCalendar();
-                LoadSlots();
-                RefreshReceptionStats();
-                SetStatus("Anulowano wizytę z kalendarza.");
-                MessageBox.Show("Wizyta została anulowana.", "SISMED", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                ShowError(ex.Message);
-            }
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
@@ -1092,6 +1169,45 @@ namespace VS_CUWSISMED
             catch (Exception ex)
             {
                 ShowError(ex.Message);
+            }
+        }
+
+        private void btnEditEmployee_Click(object sender, EventArgs e)
+        {
+            if (!RequireAdministrator())
+            {
+                return;
+            }
+
+            Employee employee = GetSelectedEmployee();
+            if (employee == null)
+            {
+                ShowError("Wybierz pracownika.");
+                return;
+            }
+
+            using (var dialog = new RegisterEmployeeDialog(employee))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                RegistrationResult result = AppServices.AuthService.UpdateEmployee(
+                    currentEmployee,
+                    dialog.EditedEmployee,
+                    dialog.NewPassword,
+                    dialog.RepeatedPassword);
+
+                if (!result.Success)
+                {
+                    ShowError(result.Message);
+                    return;
+                }
+
+                LoadEmployeeList(txtEmployeeSearch.Text);
+                SelectEmployee(result.Employee);
+                SetStatus("Zaktualizowano konto pracownika: " + result.Employee.FullName);
             }
         }
 
@@ -1253,6 +1369,8 @@ namespace VS_CUWSISMED
             cmbCalDoctor.DisplayMember = "Text";
             cmbCalDoctor.DataSource = doctorOptions;
             cmbCalDoctor.SelectedIndex = 0;
+            cmbCalDoctor.SelectedIndexChanged -= cmbCalDoctor_SelectedIndexChanged;
+            cmbCalDoctor.SelectedIndexChanged += cmbCalDoctor_SelectedIndexChanged;
 
             var serviceOptions = new List<CalendarServiceOption>
             {
@@ -1262,6 +1380,8 @@ namespace VS_CUWSISMED
             cmbCalService.DisplayMember = "Text";
             cmbCalService.DataSource = serviceOptions;
             cmbCalService.SelectedIndex = 0;
+            cmbCalService.SelectedIndexChanged -= cmbCalService_SelectedIndexChanged;
+            cmbCalService.SelectedIndexChanged += cmbCalService_SelectedIndexChanged;
 
             cmbCalStatus.DisplayMember = "Text";
             cmbCalStatus.DataSource = new List<CalendarStatusOption>
@@ -1272,6 +1392,75 @@ namespace VS_CUWSISMED
                 new CalendarStatusOption { Text = "Historyczna/Zakończona", Key = "history" }
             };
             cmbCalStatus.SelectedIndex = 0;
+        }
+
+        private void cmbCalDoctor_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (isUpdatingCalendarFilters)
+            {
+                return;
+            }
+
+            CalendarDoctorOption doctorOption = cmbCalDoctor.SelectedItem as CalendarDoctorOption;
+            if (doctorOption == null || doctorOption.IsAll || doctorOption.Doctor == null)
+            {
+                return;
+            }
+
+            try
+            {
+                isUpdatingCalendarFilters = true;
+                SelectCalendarServiceBySpecialization(doctorOption.Doctor.Specialization);
+            }
+            finally
+            {
+                isUpdatingCalendarFilters = false;
+            }
+        }
+
+        private void cmbCalService_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (isUpdatingCalendarFilters)
+            {
+                return;
+            }
+
+            CalendarServiceOption serviceOption = cmbCalService.SelectedItem as CalendarServiceOption;
+            if (serviceOption == null || serviceOption.IsAll)
+            {
+                return;
+            }
+
+            CalendarDoctorOption doctorOption = cmbCalDoctor.SelectedItem as CalendarDoctorOption;
+            if (doctorOption != null
+                && !doctorOption.IsAll
+                && !string.Equals(
+                    doctorOption.Doctor.Specialization,
+                    serviceOption.Service.Specialization,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                cmbCalDoctor.SelectedIndex = 0;
+            }
+        }
+
+        private void SelectCalendarServiceBySpecialization(string specialization)
+        {
+            if (string.IsNullOrWhiteSpace(specialization))
+            {
+                return;
+            }
+
+            for (int i = 0; i < cmbCalService.Items.Count; i++)
+            {
+                CalendarServiceOption option = cmbCalService.Items[i] as CalendarServiceOption;
+                if (option != null
+                    && !option.IsAll
+                    && string.Equals(option.Service.Specialization, specialization, StringComparison.OrdinalIgnoreCase))
+                {
+                    cmbCalService.SelectedIndex = i;
+                    return;
+                }
+            }
         }
 
         private void LoadDocumentStatusFilter()
@@ -1614,7 +1803,6 @@ namespace VS_CUWSISMED
                     + Environment.NewLine
                     + "Status: Dostępny";
                 btnCalendarOpenPatient.Enabled = false;
-                btnCalendarCancelAppointment.Enabled = false;
                 return;
             }
 
@@ -1641,18 +1829,13 @@ namespace VS_CUWSISMED
                     ? string.Empty
                     : Environment.NewLine + "Powód anulowania: " + row.Appointment.CancelReason);
 
-            bool canAct = row.Appointment.Status == AppointmentStatus.Reserved
-                && row.Appointment.StartAt >= DateTime.Now;
             btnCalendarOpenPatient.Enabled = patient != null;
-            btnCalendarCancelAppointment.Enabled = canAct;
         }
 
         private void ClearCalendarDetails()
         {
             lblCalendarDetails.Text = "Wybierz zarezerwowany slot, aby zobaczyć szczegóły.";
-            txtCalendarCancelReason.Text = string.Empty;
             btnCalendarOpenPatient.Enabled = false;
-            btnCalendarCancelAppointment.Enabled = false;
         }
 
         private static string GetCalendarServiceText(CalendarSlotRow row)
@@ -1722,7 +1905,6 @@ namespace VS_CUWSISMED
 
             lblTodayVisitsValue.Text = todayVisits.ToString();
             lblPlannedVisitsValue.Text = plannedVisits.ToString();
-            lblPatientsValue.Text = dataStore.GetPatientCount().ToString();
         }
 
         private void LoadEmployeeList(string query)
@@ -1751,6 +1933,219 @@ namespace VS_CUWSISMED
             }
 
             RefreshEmployeeDetails(selectedEmployee);
+        }
+
+        private void LoadPatientDirectory()
+        {
+            if (dgvPatients == null || dataStore == null)
+            {
+                return;
+            }
+
+            Patient previouslySelected = selectedDirectoryPatient;
+            dgvPatients.Rows.Clear();
+
+            foreach (Patient patient in FilterDirectoryPatients(dataStore.GetPatients()))
+            {
+                string[] addressParts = SplitPatientAddress(patient.Address);
+                int warningCount = GetPatientWarningCount(patient);
+                string blockInfo = patient.IsBlocked
+                    ? "Do " + patient.BlockedUntil.Value.ToString("dd.MM.yyyy")
+                    : "Nie";
+
+                int rowIndex = dgvPatients.Rows.Add(
+                    Safe(patient.FirstName),
+                    Safe(patient.LastName),
+                    Safe(patient.Pesel),
+                    patient.BirthDate.HasValue ? patient.BirthDate.Value.ToString("dd.MM.yyyy") : "-",
+                    Safe(patient.Phone),
+                    Safe(patient.Email),
+                    Safe(addressParts[0]),
+                    Safe(addressParts[1]),
+                    Safe(addressParts[2]),
+                    Safe(addressParts[3]),
+                    Safe(addressParts[4]),
+                    warningCount.ToString(),
+                    blockInfo);
+                dgvPatients.Rows[rowIndex].Tag = patient;
+            }
+
+            selectedDirectoryPatient = null;
+            if (dgvPatients.Rows.Count > 0)
+            {
+                dgvPatients.Rows[0].Selected = true;
+                selectedDirectoryPatient = dgvPatients.Rows[0].Tag as Patient;
+                if (previouslySelected != null)
+                {
+                    SelectDirectoryPatient(previouslySelected.Id);
+                }
+            }
+
+            RefreshDirectoryPatientDetails(selectedDirectoryPatient);
+            SetStatus("Pacjenci w bazie: " + dgvPatients.Rows.Count);
+        }
+
+        private IEnumerable<Patient> FilterDirectoryPatients(IEnumerable<Patient> patients)
+        {
+            string query = NormalizeText(txtPatientsSearch == null ? string.Empty : txtPatientsSearch.Text);
+            IEnumerable<Patient> result = patients;
+
+            if (!string.IsNullOrEmpty(query))
+            {
+                result = result.Where(patient =>
+                    NormalizeText(patient.FirstName).Contains(query)
+                    || NormalizeText(patient.LastName).Contains(query)
+                    || NormalizeText(patient.Pesel).Contains(query)
+                    || NormalizeText(patient.Phone).Contains(query)
+                    || NormalizeText(patient.Email).Contains(query));
+            }
+
+            string filter = cmbPatientsFilter == null ? string.Empty : Convert.ToString(cmbPatientsFilter.SelectedItem);
+            if (filter == "Pacjenci z ostrzeżeniami")
+            {
+                result = result.Where(patient => GetPatientWarningCount(patient) > 0);
+            }
+            else if (filter == "Pacjenci z aktywną blokadą")
+            {
+                result = result.Where(patient => patient.IsBlocked);
+            }
+
+            return result.OrderBy(patient => patient.LastName).ThenBy(patient => patient.FirstName).ToList();
+        }
+
+        private void SelectDirectoryPatient(int patientId)
+        {
+            foreach (DataGridViewRow row in dgvPatients.Rows)
+            {
+                Patient rowPatient = row.Tag as Patient;
+                if (rowPatient != null && rowPatient.Id == patientId)
+                {
+                    row.Selected = true;
+                    dgvPatients.CurrentCell = row.Cells[0];
+                    selectedDirectoryPatient = rowPatient;
+                    RefreshDirectoryPatientDetails(rowPatient);
+                    return;
+                }
+            }
+        }
+
+        private void dgvPatients_SelectionChanged(object sender, EventArgs e)
+        {
+            selectedDirectoryPatient = GetSelectedDirectoryPatient();
+            RefreshDirectoryPatientDetails(selectedDirectoryPatient);
+        }
+
+        private void btnPatientsSearch_Click(object sender, EventArgs e)
+        {
+            LoadPatientDirectory();
+        }
+
+        private void btnPatientsClear_Click(object sender, EventArgs e)
+        {
+            txtPatientsSearch.Text = string.Empty;
+            if (cmbPatientsFilter.Items.Count > 0)
+            {
+                cmbPatientsFilter.SelectedIndex = 0;
+            }
+
+            LoadPatientDirectory();
+        }
+
+        private void cmbPatientsFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            LoadPatientDirectory();
+        }
+
+        private void btnOpenPatientReception_Click(object sender, EventArgs e)
+        {
+            Patient patient = GetSelectedDirectoryPatient();
+            if (patient == null)
+            {
+                ShowError("Wybierz pacjenta.");
+                return;
+            }
+
+            SelectPatient(patient, true);
+            ShowReceptionScreen();
+            SetStatus("Otworzono pacjenta w recepcji: " + patient.DisplayName);
+        }
+
+        private Patient GetSelectedDirectoryPatient()
+        {
+            if (dgvPatients == null || dgvPatients.CurrentRow == null)
+            {
+                return selectedDirectoryPatient;
+            }
+
+            return dgvPatients.CurrentRow.Tag as Patient;
+        }
+
+        private void RefreshDirectoryPatientDetails(Patient patient)
+        {
+            if (lblDirectoryPatientName == null)
+            {
+                return;
+            }
+
+            if (patient == null)
+            {
+                lblDirectoryPatientName.Text = "Imię i nazwisko: -";
+                lblDirectoryPatientPesel.Text = "PESEL: -";
+                lblDirectoryPatientBirthDate.Text = "Data urodzenia: -";
+                lblDirectoryPatientPhone.Text = "Telefon: -";
+                lblDirectoryPatientEmail.Text = "E-mail: -";
+                lblDirectoryPatientCity.Text = "Miasto: -";
+                lblDirectoryPatientPostalCode.Text = "Kod pocztowy: -";
+                lblDirectoryPatientStreet.Text = "Ulica: -";
+                lblDirectoryPatientHouseNumber.Text = "Numer domu: -";
+                lblDirectoryPatientApartmentNumber.Text = "Numer lokalu: -";
+                lblDirectoryPatientWarnings.Text = "Ostrzeżenia: -";
+                lblDirectoryPatientBlock.Text = "Blokada rezerwacji: -";
+                lblDirectoryPatientNotesCount.Text = "Notatki: -";
+                lblDirectoryPatientReservedCount.Text = "Zarezerwowane wizyty: -";
+                lblDirectoryPatientHistoryCount.Text = "Historia wizyt: -";
+                btnOpenPatientReception.Enabled = false;
+                return;
+            }
+
+            Patient current = dataStore.GetPatient(patient.Id) ?? patient;
+            string[] addressParts = SplitPatientAddress(current.Address);
+            IReadOnlyList<Appointment> appointments = dataStore.GetAllAppointmentsForPatient(current.Id);
+            int reservedCount = appointments.Count(appointment =>
+                appointment.Status == AppointmentStatus.Reserved && appointment.StartAt >= DateTime.Now);
+            int historyCount = appointments.Count(appointment =>
+                appointment.Status == AppointmentStatus.Cancelled || appointment.StartAt < DateTime.Now);
+
+            lblDirectoryPatientName.Text = "Imię i nazwisko: " + current.DisplayName;
+            lblDirectoryPatientPesel.Text = "PESEL: " + Safe(current.Pesel);
+            lblDirectoryPatientBirthDate.Text = "Data urodzenia: "
+                + (current.BirthDate.HasValue ? current.BirthDate.Value.ToString("dd.MM.yyyy") : "-");
+            lblDirectoryPatientPhone.Text = "Telefon: " + Safe(current.Phone);
+            lblDirectoryPatientEmail.Text = "E-mail: " + Safe(current.Email);
+            lblDirectoryPatientCity.Text = "Miasto: " + Safe(addressParts[0]);
+            lblDirectoryPatientPostalCode.Text = "Kod pocztowy: " + Safe(addressParts[1]);
+            lblDirectoryPatientStreet.Text = "Ulica: " + Safe(addressParts[2]);
+            lblDirectoryPatientHouseNumber.Text = "Numer domu: " + Safe(addressParts[3]);
+            lblDirectoryPatientApartmentNumber.Text = "Numer lokalu: " + Safe(addressParts[4]);
+            lblDirectoryPatientWarnings.Text = "Ostrzeżenia: " + GetPatientWarningCount(current);
+            lblDirectoryPatientBlock.Text = current.IsBlocked
+                ? "Blokada rezerwacji: do " + current.BlockedUntil.Value.ToString("dd.MM.yyyy")
+                : "Blokada rezerwacji: nie";
+            lblDirectoryPatientBlock.ForeColor = current.IsBlocked ? SismedTheme.Danger : SismedTheme.Success;
+            lblDirectoryPatientNotesCount.Text = "Notatki: " + dataStore.GetPatientNotes(current.Id).Count;
+            lblDirectoryPatientReservedCount.Text = "Zarezerwowane wizyty: " + reservedCount;
+            lblDirectoryPatientHistoryCount.Text = "Historia wizyt: " + historyCount;
+            btnOpenPatientReception.Enabled = true;
+        }
+
+        private int GetPatientWarningCount(Patient patient)
+        {
+            if (patient == null)
+            {
+                return 0;
+            }
+
+            return Math.Max(patient.WarningCount, dataStore.GetPatientWarnings(patient.Id).Count);
         }
 
         private void SelectEmployee(Employee employee)
@@ -1791,6 +2186,45 @@ namespace VS_CUWSISMED
             RefreshReservedAppointments();
             ShowPatientMessagesPanel();
             tabControl.SelectedTab = tabPatient;
+        }
+
+        private void ShowSearchResults(IReadOnlyList<Patient> patients, string message)
+        {
+            dgvSearchResults.Rows.Clear();
+
+            foreach (Patient patient in patients)
+            {
+                int rowIndex = dgvSearchResults.Rows.Add(
+                    Safe(patient.FirstName),
+                    Safe(patient.LastName),
+                    Safe(patient.Pesel),
+                    patient.BirthDate.HasValue ? patient.BirthDate.Value.ToString("dd.MM.yyyy") : "-",
+                    Safe(patient.Phone),
+                    Safe(patient.Email));
+                dgvSearchResults.Rows[rowIndex].Tag = patient;
+            }
+
+            dgvSearchResults.ClearSelection();
+            lblSearchResultsInfo.Text = message;
+            ShowSearchScreen();
+        }
+
+        private void dgvSearchResults_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+            {
+                return;
+            }
+
+            Patient patient = dgvSearchResults.Rows[e.RowIndex].Tag as Patient;
+            if (patient == null)
+            {
+                return;
+            }
+
+            SelectPatient(patient, true);
+            ShowReceptionScreen();
+            SetStatus("Wybrano pacjenta: " + selectedPatient.DisplayName);
         }
 
         private void ShowPatientSearchResults(IReadOnlyList<Patient> patients)
@@ -1861,7 +2295,7 @@ namespace VS_CUWSISMED
             }
 
             activePatientSection = PatientSectionPlanned;
-            ShowPatientActionPanel(pnlPatientPlannedPanel, "Zaplanowane wizyty");
+            ShowPatientActionPanel(pnlPatientPlannedPanel, "Zarezerwowane wizyty");
             IEnumerable<Appointment> appointments = dataStore.GetAllAppointmentsForPatient(selectedPatient.Id)
                 .Where(a => a.Status == AppointmentStatus.Reserved && a.StartAt >= DateTime.Now)
                 .OrderBy(a => a.StartAt);
@@ -1889,6 +2323,22 @@ namespace VS_CUWSISMED
             if (!EnsurePatientSelected())
             {
                 return;
+            }
+
+            selectedPatient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+            if (!HasCompleteAddress(selectedPatient))
+            {
+                ShowError("Przed umówieniem wizyty uzupełnij adres pacjenta.");
+                if (!OpenPatientEditDialog())
+                {
+                    return;
+                }
+
+                selectedPatient = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+                if (!HasCompleteAddress(selectedPatient))
+                {
+                    return;
+                }
             }
 
             activePatientSection = PatientSectionBooking;
@@ -2356,7 +2806,7 @@ namespace VS_CUWSISMED
         {
             if (appointment == null || selectedPatient == null)
             {
-                lblPlannedAppointmentDetails.Text = "Wybierz zaplanowaną wizytę, aby zobaczyć szczegóły.";
+                lblPlannedAppointmentDetails.Text = "Wybierz zarezerwowaną wizytę, aby zobaczyć szczegóły.";
                 lblPlannedAppointmentTimeLeft.Text = string.Empty;
                 txtCancelAppointmentReason.Text = string.Empty;
                 btnCancelPatientAppointment.Enabled = false;
@@ -2390,7 +2840,7 @@ namespace VS_CUWSISMED
             Appointment appointment = GetSelectedPatientPlannedAppointment();
             if (appointment == null)
             {
-                ShowError("Wybierz zaplanowaną wizytę do zamiany.");
+                ShowError("Wybierz zarezerwowaną wizytę do zamiany.");
                 return;
             }
 
@@ -2460,7 +2910,7 @@ namespace VS_CUWSISMED
             Appointment appointment = GetSelectedPatientPlannedAppointment();
             if (appointment == null)
             {
-                ShowError("Wybierz zaplanowaną wizytę.");
+                ShowError("Wybierz zarezerwowaną wizytę.");
                 return;
             }
 
@@ -2550,7 +3000,7 @@ namespace VS_CUWSISMED
         {
             if (appointment.Status == AppointmentStatus.Reserved && appointment.StartAt >= DateTime.Now)
             {
-                return "Zaplanowana";
+                return "Zarezerwowana";
             }
 
             if (appointment.Status == AppointmentStatus.Reserved)
@@ -2581,6 +3031,7 @@ namespace VS_CUWSISMED
 
         private void SetPatientActionButtonsEnabled(bool enabled)
         {
+            btnPatientEditData.Enabled = enabled;
             btnPatientMessages.Enabled = enabled;
             btnPatientBook.Enabled = enabled;
             btnPatientPlanned.Enabled = enabled;
@@ -2610,14 +3061,6 @@ namespace VS_CUWSISMED
         {
             if (patient == null)
             {
-                lblPatientName.Text = "- Brak wybranego pacjenta -";
-                lblPatientPesel.Text = "PESEL: -";
-                lblPatientBirthDate.Text = "Data ur.: -";
-                lblPatientPhone.Text = "Tel: -";
-                lblPatientEmail.Text = "E-mail: -";
-                lblPatientWarnings.Text = "Ostrzezenia: 0/3";
-                lblPatientNotes.Text = "Notatka: -";
-                lblPatientStatus.Text = string.Empty;
                 RefreshPatientDetailCard(null, 0);
                 return;
             }
@@ -2625,21 +3068,8 @@ namespace VS_CUWSISMED
             Patient current = dataStore.GetPatient(patient.Id) ?? patient;
             selectedPatient = current;
 
-            lblPatientName.Text = current.DisplayName;
-            lblPatientPesel.Text = "PESEL: " + current.Pesel;
-            lblPatientBirthDate.Text = "Data ur.: "
-                + (current.BirthDate.HasValue ? current.BirthDate.Value.ToString("dd.MM.yyyy") : "-");
-            lblPatientPhone.Text = "Tel: " + (string.IsNullOrWhiteSpace(current.Phone) ? "-" : current.Phone);
-            lblPatientEmail.Text = "E-mail: " + (string.IsNullOrWhiteSpace(current.Email) ? "-" : current.Email);
-
             IReadOnlyList<PatientWarning> warnings = dataStore.GetPatientWarnings(current.Id);
-            IReadOnlyList<PatientNote> notes = dataStore.GetPatientNotes(current.Id);
             int warningCount = Math.Max(current.WarningCount, warnings.Count);
-            lblPatientWarnings.Text = "Ostrzezenia: " + warningCount + "/3";
-            lblPatientNotes.Text = "Notatka: " + (notes.Count > 0 ? Truncate(notes[0].Text, 44) : "-");
-            lblPatientStatus.Text = current.IsBlocked
-                ? "Blokada do " + current.BlockedUntil.Value.ToString("dd.MM.yyyy")
-                : string.Empty;
             RefreshPatientDetailCard(current, warningCount);
         }
 
@@ -2652,10 +3082,12 @@ namespace VS_CUWSISMED
                 lblPatientPanelBirthDate.Text = "Data ur.: -";
                 lblPatientPanelPhone.Text = "Tel: -";
                 lblPatientPanelEmail.Text = "E-mail: -";
-                lblPatientPanelAddress.Text = "Adres: -";
                 lblPatientPanelWarnings.Text = "Ostrzeżenia: 0";
                 lblPatientPanelBlock.Text = "Blokada rezerwacji: nie";
                 lblPatientPanelBlock.ForeColor = SismedTheme.Success;
+                LoadAddressFields(null);
+                SetAddressFieldsReadOnly(true);
+                btnPatientEditData.Text = "Edytuj dane";
                 SetPatientActionButtonsEnabled(false);
                 return;
             }
@@ -2666,13 +3098,141 @@ namespace VS_CUWSISMED
                 + (patient.BirthDate.HasValue ? patient.BirthDate.Value.ToString("dd.MM.yyyy") : "-");
             lblPatientPanelPhone.Text = "Tel: " + Safe(patient.Phone);
             lblPatientPanelEmail.Text = "E-mail: " + Safe(patient.Email);
-            lblPatientPanelAddress.Text = "Adres: " + Safe(patient.Address);
             lblPatientPanelWarnings.Text = "Ostrzeżenia: " + warningCount;
             lblPatientPanelBlock.Text = patient.IsBlocked
                 ? "Blokada rezerwacji: do " + patient.BlockedUntil.Value.ToString("dd.MM.yyyy")
                 : "Blokada rezerwacji: nie";
             lblPatientPanelBlock.ForeColor = patient.IsBlocked ? SismedTheme.Danger : SismedTheme.Success;
+            LoadAddressFields(patient);
+            SetAddressFieldsReadOnly(true);
+            btnPatientEditData.Text = "Edytuj dane";
             SetPatientActionButtonsEnabled(true);
+        }
+
+        private void btnPatientEditData_Click(object sender, EventArgs e)
+        {
+            if (!EnsurePatientSelected())
+            {
+                return;
+            }
+
+            OpenPatientEditDialog();
+        }
+
+        private bool OpenPatientEditDialog()
+        {
+            if (selectedPatient == null)
+            {
+                return false;
+            }
+
+            Patient current = dataStore.GetPatient(selectedPatient.Id) ?? selectedPatient;
+            using (var dialog = new PatientEditDialog(current))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    selectedPatient = dataStore.UpdatePatient(dialog.Patient);
+                    FillPatientSearchFields(selectedPatient);
+                    RefreshPatientCard(selectedPatient);
+                    RefreshReservedAppointments();
+                    RefreshActivePatientSection();
+                    LoadPatientDirectory();
+                    SelectDirectoryPatient(selectedPatient.Id);
+                    SetStatus("Zapisano dane pacjenta: " + selectedPatient.DisplayName);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ShowError(ex.Message);
+                    return false;
+                }
+            }
+        }
+
+        private void LoadAddressFields(Patient patient)
+        {
+            if (txtPatientCity == null)
+            {
+                return;
+            }
+
+            if (patient == null)
+            {
+                txtPatientCity.Text = string.Empty;
+                txtPatientPostalCode.Text = string.Empty;
+                txtPatientStreet.Text = string.Empty;
+                txtPatientHouseNumber.Text = string.Empty;
+                txtPatientApartmentNumber.Text = string.Empty;
+                lblPatientAddressHint.ForeColor = SismedTheme.Warning;
+                lblPatientAddressHint.Text = "Adres jest wymagany przed umówieniem wizyty.";
+                return;
+            }
+
+            string[] parts = SplitPatientAddress(patient.Address);
+            txtPatientCity.Text = parts[0];
+            txtPatientPostalCode.Text = parts[1];
+            txtPatientStreet.Text = parts[2];
+            txtPatientHouseNumber.Text = parts[3];
+            txtPatientApartmentNumber.Text = parts[4];
+
+            bool complete = HasCompleteAddress(patient);
+            lblPatientAddressHint.ForeColor = complete ? SismedTheme.Success : SismedTheme.Warning;
+            lblPatientAddressHint.Text = complete
+                ? "Adres pacjenta jest uzupełniony."
+                : "Adres jest wymagany przed umówieniem wizyty.";
+        }
+
+        private static string[] SplitPatientAddress(string address)
+        {
+            string[] result = new string[5];
+            string[] parts = (address ?? string.Empty)
+                .Split(new[] { ',' }, StringSplitOptions.None);
+
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = i < parts.Length ? parts[i].Trim() : string.Empty;
+            }
+
+            return result;
+        }
+
+        private bool HasCompleteAddress(Patient patient)
+        {
+            if (patient == null)
+            {
+                return false;
+            }
+
+            string[] parts = SplitPatientAddress(patient.Address);
+            return parts.All(part => !string.IsNullOrWhiteSpace(part));
+        }
+
+        private void SetAddressFieldsReadOnly(bool readOnly)
+        {
+            if (txtPatientCity == null)
+            {
+                return;
+            }
+
+            TextBox[] fields =
+            {
+                txtPatientCity,
+                txtPatientPostalCode,
+                txtPatientStreet,
+                txtPatientHouseNumber,
+                txtPatientApartmentNumber
+            };
+
+            foreach (TextBox field in fields)
+            {
+                field.ReadOnly = readOnly;
+                field.BackColor = readOnly ? SismedTheme.Card : Color.White;
+            }
         }
 
         private void RefreshEmployeeDetails(Employee employee)
@@ -2751,6 +3311,11 @@ namespace VS_CUWSISMED
         private static string Safe(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+        }
+
+        private static string NormalizeText(string value)
+        {
+            return (value ?? string.Empty).Trim().ToLowerInvariant();
         }
 
         private static string Truncate(string value, int maxLength)

@@ -35,6 +35,8 @@ namespace VS_CUWSISMED
             this.bttnshowpassword = new System.Windows.Forms.Button();
             this.bttnlogin = new VS_CUWSISMED.LoginPrimaryButton();
             this.pnlVisual = new System.Windows.Forms.Panel();
+            this.label3 = new System.Windows.Forms.Label();
+            this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.pnlAccent = new System.Windows.Forms.Panel();
             this.lblVisualTitle = new System.Windows.Forms.Label();
@@ -83,7 +85,7 @@ namespace VS_CUWSISMED
             // 
             this.lblHint.Font = new System.Drawing.Font("Segoe UI", 9.5F);
             this.lblHint.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(92)))), ((int)(((byte)(104)))), ((int)(((byte)(128)))));
-            this.lblHint.Location = new System.Drawing.Point(57, 233);
+            this.lblHint.Location = new System.Drawing.Point(54, 233);
             this.lblHint.Name = "lblHint";
             this.lblHint.Size = new System.Drawing.Size(338, 22);
             this.lblHint.TabIndex = 2;
@@ -93,11 +95,11 @@ namespace VS_CUWSISMED
             // 
             this.lblWelcome.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Bold);
             this.lblWelcome.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(9)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
-            this.lblWelcome.Location = new System.Drawing.Point(54, 200);
+            this.lblWelcome.Location = new System.Drawing.Point(48, 199);
             this.lblWelcome.Name = "lblWelcome";
             this.lblWelcome.Size = new System.Drawing.Size(338, 34);
             this.lblWelcome.TabIndex = 1;
-            this.lblWelcome.Text = "Witaj w CUW SISMED";
+            this.lblWelcome.Text = "Witaj w CM SISMED";
             // 
             // pictureBox1
             // 
@@ -211,6 +213,8 @@ namespace VS_CUWSISMED
             // pnlVisual
             // 
             this.pnlVisual.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(9)))), ((int)(((byte)(24)))), ((int)(((byte)(70)))));
+            this.pnlVisual.Controls.Add(this.label3);
+            this.pnlVisual.Controls.Add(this.label2);
             this.pnlVisual.Controls.Add(this.label1);
             this.pnlVisual.Controls.Add(this.pnlAccent);
             this.pnlVisual.Controls.Add(this.lblVisualTitle);
@@ -224,15 +228,37 @@ namespace VS_CUWSISMED
             this.pnlVisual.Size = new System.Drawing.Size(312, 460);
             this.pnlVisual.TabIndex = 0;
             // 
+            // label3
+            // 
+            this.label3.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(178)))), ((int)(((byte)(194)))), ((int)(((byte)(228)))));
+            this.label3.Location = new System.Drawing.Point(51, 154);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(129, 79);
+            this.label3.TabIndex = 6;
+            this.label3.Text = "•  Wizyt lekarskich •  Dokumentacji     •  i innych funkcji...";
+            this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // label2
+            // 
+            this.label2.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.label2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(178)))), ((int)(((byte)(194)))), ((int)(((byte)(228)))));
+            this.label2.Location = new System.Drawing.Point(0, 414);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(312, 18);
+            this.label2.TabIndex = 5;
+            this.label2.Text = " Centrum Medyczne SISMED | © 2026 CM SISMED Sp z o.o. | ";
+            this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // label1
             // 
-            this.label1.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.label1.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(178)))), ((int)(((byte)(194)))), ((int)(((byte)(228)))));
-            this.label1.Location = new System.Drawing.Point(15, 410);
+            this.label1.Location = new System.Drawing.Point(0, 432);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(236, 50);
+            this.label1.Size = new System.Drawing.Size(312, 19);
             this.label1.TabIndex = 4;
-            this.label1.Text = "W razie problemów skontaktuj         się z administratorem.";
+            this.label1.Text = " W razie problemów skontaktuj się z administratorem.";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.label1.Click += new System.EventHandler(this.label1_Click);
             // 
@@ -248,32 +274,33 @@ namespace VS_CUWSISMED
             // 
             this.lblVisualTitle.Font = new System.Drawing.Font("Segoe UI", 21F, System.Drawing.FontStyle.Bold);
             this.lblVisualTitle.ForeColor = System.Drawing.Color.White;
-            this.lblVisualTitle.Location = new System.Drawing.Point(34, 82);
+            this.lblVisualTitle.Location = new System.Drawing.Point(27, 73);
             this.lblVisualTitle.Name = "lblVisualTitle";
-            this.lblVisualTitle.Size = new System.Drawing.Size(264, 82);
+            this.lblVisualTitle.Size = new System.Drawing.Size(278, 42);
             this.lblVisualTitle.TabIndex = 1;
-            this.lblVisualTitle.Text = "Centrum Umawiania Wizyt";
+            this.lblVisualTitle.Text = "System CM";
+            this.lblVisualTitle.Click += new System.EventHandler(this.lblVisualTitle_Click);
             // 
             // lblVisualSub
             // 
             this.lblVisualSub.Font = new System.Drawing.Font("Segoe UI", 10F);
             this.lblVisualSub.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(178)))), ((int)(((byte)(194)))), ((int)(((byte)(228)))));
-            this.lblVisualSub.Location = new System.Drawing.Point(34, 184);
+            this.lblVisualSub.Location = new System.Drawing.Point(30, 135);
             this.lblVisualSub.Name = "lblVisualSub";
-            this.lblVisualSub.Size = new System.Drawing.Size(236, 116);
+            this.lblVisualSub.Size = new System.Drawing.Size(150, 31);
             this.lblVisualSub.TabIndex = 2;
-            this.lblVisualSub.Text = "Zaloguj się do systemu umawiania wizyt!  ";
+            this.lblVisualSub.Text = "Uzyskaj dostęp do:";
             this.lblVisualSub.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
             // lblVisualFooter
             // 
             this.lblVisualFooter.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
             this.lblVisualFooter.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(248)))), ((int)(((byte)(229)))), ((int)(((byte)(242)))));
-            this.lblVisualFooter.Location = new System.Drawing.Point(15, 386);
+            this.lblVisualFooter.Location = new System.Drawing.Point(6, 386);
             this.lblVisualFooter.Name = "lblVisualFooter";
             this.lblVisualFooter.Size = new System.Drawing.Size(236, 28);
             this.lblVisualFooter.TabIndex = 3;
-            this.lblVisualFooter.Text = "CUW SISMED";
+            this.lblVisualFooter.Text = "CM SISMED";
             // 
             // login_page
             // 
@@ -323,5 +350,7 @@ namespace VS_CUWSISMED
         private Button bttnshowpassword;
         private Label label1;
         private LoginPrimaryButton bttnlogin;
+        private Label label2;
+        private Label label3;
     }
 }

@@ -247,10 +247,15 @@ namespace VS_CUWSISMED
 
         public static RegistrationResult Ok(Employee employee)
         {
+            return Ok(employee, "Konto pracownika zostało utworzone.");
+        }
+
+        public static RegistrationResult Ok(Employee employee, string message)
+        {
             return new RegistrationResult
             {
                 Success = true,
-                Message = "Konto pracownika zostało utworzone.",
+                Message = message,
                 Employee = employee
             };
         }

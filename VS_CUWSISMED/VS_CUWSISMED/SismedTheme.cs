@@ -156,6 +156,42 @@ namespace VS_CUWSISMED
             button.FlatAppearance.BorderSize = fill == Color.Transparent ? 1 : 0;
             button.UseVisualStyleBackColor = false;
             button.Cursor = Cursors.Hand;
+            ApplyRoundedRegion(button, Radius);
+            button.Resize -= Button_Resize;
+            button.Resize += Button_Resize;
+        }
+
+        private static void Button_Resize(object sender, EventArgs e)
+        {
+            Button button = sender as Button;
+            if (button != null)
+            {
+                ApplyRoundedRegion(button, Radius);
+            }
+        }
+
+        private static void ApplyRoundedRegion(Control control, int radius)
+        {
+            if (control.Width <= 0 || control.Height <= 0)
+            {
+                return;
+            }
+
+            int diameter = Math.Max(2, radius * 2);
+            using (var path = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                path.AddArc(0, 0, diameter, diameter, 180, 90);
+                path.AddArc(control.Width - diameter - 1, 0, diameter, diameter, 270, 90);
+                path.AddArc(control.Width - diameter - 1, control.Height - diameter - 1, diameter, diameter, 0, 90);
+                path.AddArc(0, control.Height - diameter - 1, diameter, diameter, 90, 90);
+                path.CloseFigure();
+                Region oldRegion = control.Region;
+                control.Region = new Region(path);
+                if (oldRegion != null)
+                {
+                    oldRegion.Dispose();
+                }
+            }
         }
 
         private static void ApplyCueBanner(TextBox textBox, string placeholder)

@@ -151,5 +151,10 @@ namespace VS_CUWSISMED
         {
 
         }
+
+        private void lblVisualTitle_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

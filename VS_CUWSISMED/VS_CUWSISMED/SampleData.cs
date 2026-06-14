@@ -68,8 +68,8 @@ namespace VS_CUWSISMED
                 BirthDate = new DateTime(1982, 1, 1),
                 Phone = "501222333",
                 Email = "anna.kowalska@example.com",
-                Address = "ul. Zdrowa 1, Warszawa",
-                Notes = "Pacjentka preferuje kontakt telefoniczny.",
+                Address = "Warszawa, 01-001, Marszałkowska, 10, 5",
+                Notes = string.Empty,
                 WarningCount = 0
             });
 
@@ -77,14 +77,14 @@ namespace VS_CUWSISMED
             {
                 Id = 2,
                 FirstName = "Jan",
-                LastName = "Nowak",
-                Pesel = "76020254321",
-                BirthDate = new DateTime(1976, 2, 2),
+                LastName = "Kowalski",
+                Pesel = "90050554321",
+                BirthDate = new DateTime(1990, 5, 5),
                 Phone = "502333444",
-                Email = "jan.nowak@example.com",
-                Address = "ul. Szpitalna 7, Warszawa",
-                Notes = "Wizyta kontrolna po badaniach.",
-                WarningCount = 1
+                Email = "jan.kowalski@example.com",
+                Address = "Warszawa, 01-002, Puławska, 20, 8",
+                Notes = string.Empty,
+                WarningCount = 0
             });
 
             data.Doctors.Add(new Doctor
@@ -159,6 +159,18 @@ namespace VS_CUWSISMED
                 true,
                 "Kardiolog"));
 
+            data.Employees.Add(CreateEmployee(
+                5,
+                "elewandowska",
+                "Ewa",
+                "Lewandowska",
+                "83050533333",
+                new DateTime(1983, 5, 5),
+                EmployeeRoles.Reception,
+                "demo",
+                true,
+                "Dermatolog"));
+
             int scheduleId = 1;
             foreach (var doctor in data.Doctors)
             {
@@ -193,23 +205,6 @@ namespace VS_CUWSISMED
                 StartAt = DateTime.Today.AddDays(1).AddHours(10).AddMinutes(15),
                 Status = AppointmentStatus.Reserved,
                 Notes = "Kontrola"
-            });
-
-            data.PatientNotes.Add(new PatientNote
-            {
-                Id = 1,
-                PatientId = 1,
-                CreatedAt = DateTime.Now,
-                CreatedByEmployee = "Rejestrator SISMED",
-                Text = "Pacjentka preferuje kontakt telefoniczny."
-            });
-
-            data.PatientWarnings.Add(new PatientWarning
-            {
-                Id = 1,
-                PatientId = 2,
-                CreatedAt = DateTime.Now.AddDays(-14),
-                Reason = "Odwołanie wizyty mniej niż 24h przed terminem."
             });
 
             data.Documents.Add(new SismedDocument

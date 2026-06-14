@@ -9,6 +9,7 @@ namespace VS_CUWSISMED
     {
         private static readonly Regex NameRegex = new Regex(@"^[\p{L}\s-]+$", RegexOptions.Compiled);
         private static readonly Regex EmailRegex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
+        private static readonly Regex PostalCodeRegex = new Regex(@"^\d{2}-\d{3}$", RegexOptions.Compiled);
 
         public static bool IsName(string value)
         {
@@ -44,6 +45,12 @@ namespace VS_CUWSISMED
         {
             value = (value ?? string.Empty).Trim();
             return value.Length == 0 || EmailRegex.IsMatch(value);
+        }
+
+        public static bool IsPostalCode(string value)
+        {
+            value = (value ?? string.Empty).Trim();
+            return PostalCodeRegex.IsMatch(value);
         }
 
         public static bool TryParseBirthDate(string value, out DateTime? birthDate)

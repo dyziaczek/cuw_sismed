@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace VS_CUWSISMED
@@ -12,8 +13,6 @@ namespace VS_CUWSISMED
         private readonly TextBox txtBirthDate;
         private readonly TextBox txtPhone;
         private readonly TextBox txtEmail;
-        private readonly TextBox txtAddress;
-        private readonly TextBox txtNotes;
         private readonly Button btnSave;
         private readonly Button btnCancel;
 
@@ -29,24 +28,23 @@ namespace VS_CUWSISMED
             AutoScaleDimensions = new SizeF(96F, 96F);
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScroll = true;
-            ClientSize = new Size(420, 460);
-            MinimumSize = new Size(380, 420);
+            ClientSize = new Size(420, 360);
+            MinimumSize = new Size(380, 340);
             BackColor = SismedTheme.Surface;
             Shown += (sender, args) => SismedTheme.FitFormToWorkingArea(this);
 
             txtFirstName = CreateTextBox("Imie", 24);
             txtLastName = CreateTextBox("Nazwisko", 72);
             txtPesel = CreateTextBox("PESEL", 120);
-            txtBirthDate = CreateTextBox("Data urodzenia dd.MM.yyyy", 168);
+            txtBirthDate = CreateTextBox("Data urodzenia dd-MM-yyyy", 168);
             txtPhone = CreateTextBox("Telefon", 216);
             txtEmail = CreateTextBox("E-mail", 264);
-            txtAddress = CreateTextBox("Adres", 312);
-            txtNotes = CreateTextBox("Notatka pacjenta", 360);
+            ConfigureInputLimits();
 
             btnSave = new Button
             {
                 Text = "Zapisz",
-                Location = new Point(210, 414),
+                Location = new Point(210, 314),
                 Size = new Size(84, 32),
                 Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -56,7 +54,7 @@ namespace VS_CUWSISMED
             btnCancel = new Button
             {
                 Text = "Anuluj",
-                Location = new Point(304, 414),
+                Location = new Point(304, 314),
                 Size = new Size(84, 32),
                 Anchor = AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -69,9 +67,20 @@ namespace VS_CUWSISMED
 
             Controls.AddRange(new Control[]
             {
-                txtFirstName, txtLastName, txtPesel, txtBirthDate, txtPhone, txtEmail, txtAddress, txtNotes,
+                txtFirstName, txtLastName, txtPesel, txtBirthDate, txtPhone, txtEmail,
                 btnSave, btnCancel
             });
+        }
+
+        private void ConfigureInputLimits()
+        {
+            txtPesel.MaxLength = 11;
+            txtPhone.MaxLength = 9;
+            txtBirthDate.MaxLength = 10;
+            txtPesel.KeyPress += DigitsOnly_KeyPress;
+            txtPhone.KeyPress += DigitsOnly_KeyPress;
+            txtBirthDate.KeyPress += Date_KeyPress;
+            txtBirthDate.TextChanged += DateTextBox_TextChanged;
         }
 
         private TextBox CreateTextBox(string placeholder, int top)
@@ -85,6 +94,58 @@ namespace VS_CUWSISMED
 
             SismedTheme.ApplyTextBox(textBox, placeholder);
             return textBox;
+        }
+
+        private static void DigitsOnly_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
+            {
+                e.Handled = true;
+            }
+        }
+
+        private static void Date_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar) && e.KeyChar != '-')
+            {
+                e.Handled = true;
+            }
+        }
+
+        private static void DateTextBox_TextChanged(object sender, EventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null)
+            {
+                return;
+            }
+
+            string digits = new string(textBox.Text.Where(char.IsDigit).Take(8).ToArray());
+            string formatted = FormatBirthDateInput(digits);
+            if (textBox.Text == formatted)
+            {
+                return;
+            }
+
+            textBox.Text = formatted;
+            textBox.SelectionStart = formatted.Length;
+        }
+
+        private static string FormatBirthDateInput(string digits)
+        {
+            if (digits.Length <= 2)
+            {
+                return digits;
+            }
+
+            if (digits.Length <= 4)
+            {
+                return digits.Substring(0, 2) + "-" + digits.Substring(2);
+            }
+
+            return digits.Substring(0, 2) + "-"
+                + digits.Substring(2, 2) + "-"
+                + digits.Substring(4);
         }
 
         private void btnSave_Click(object sender, EventArgs e)
@@ -137,8 +198,8 @@ namespace VS_CUWSISMED
                 BirthDate = birthDate,
                 Phone = txtPhone.Text.Trim(),
                 Email = txtEmail.Text.Trim(),
-                Address = txtAddress.Text.Trim(),
-                Notes = txtNotes.Text.Trim(),
+                Address = string.Empty,
+                Notes = string.Empty,
                 WarningCount = 0
             };
 
