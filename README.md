@@ -68,6 +68,7 @@ Projekt został stworzony przeze mnie w celach Projektu Indywidualnego.
   4. Data urodzenia
   5. Adres e-mail
   6. Numer telefonu
+  
   Z poziomu tego modułu można również dodać nowego pacjenta.
 
 > RECEPCJA [moduł służący do pracy z wybranym pacjentem]
@@ -89,6 +90,7 @@ Projekt został stworzony przeze mnie w celach Projektu Indywidualnego.
   2. specjalizacji lub usługi
   3. daty
   4. statusu wizyty
+  
   Po kliknięciu wizyty możliwe jest przejście do karty pacjenta.
 
 > PERSONEL [moduł przeznaczony do obsługi kont pracowników]
@@ -100,6 +102,7 @@ Projekt został stworzony przeze mnie w celach Projektu Indywidualnego.
   5. przypisywać role
   6. oznaczać pracowników jako lekarzy
   7. przypisywać specjalizacje lekarzom
+  
   Rejestrator posiada dostęp informacyjny bez możliwości zarządzania kontami.
 
 > PACJENCI [moduł informacyjny prezentujący listę wszystkich pacjentów zapisanych w systemie]
@@ -113,6 +116,7 @@ Projekt został stworzony przeze mnie w celach Projektu Indywidualnego.
   7. Adres
   8. Liczba ostrzeżeń
   9. Informacja o blokadzie rezerwacji
+  
   Moduł nie pozwala edytować ani usuwać pacjentów. Edycja danych pacjenta odbywa się w module RECEPCJA.
 
 > DOKUMENTY [moduł służy do obsługi dokumentów wewnętrznych placówki]
