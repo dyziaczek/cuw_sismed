@@ -279,6 +279,39 @@ Struktura projektu
 
 > skalowanie aplikacji do różnych rozdzielczości
 
+## Aplikacja
+
+| _EKRAN LOGOWANIA_ |
+
+> Logowanie:
+<img width="760" height="452" alt="image" src="https://github.com/user-attachments/assets/9055a573-500d-4101-a4d7-c9f2edd6e2b2" />
+
+| _GŁÓWNA APLIKACJA_ |
+
+> Szukaj:
+<img width="2555" height="1431" alt="image" src="https://github.com/user-attachments/assets/6ef5e71a-49e1-49fc-9057-44d862181ccf" />
+
+> Recepcja:
+<img width="2554" height="1438" alt="image" src="https://github.com/user-attachments/assets/fb992891-e0dc-4c3c-a363-75e4133afb68" />
+
+> Kalendarz Wizyt:
+<img width="2553" height="1436" alt="image" src="https://github.com/user-attachments/assets/9335e756-4e09-438f-a28b-267b26145756" />
+
+> Dokumenty:
+<img width="2555" height="1438" alt="image" src="https://github.com/user-attachments/assets/dc81efa3-a2bf-46a2-8fed-fb629545e310" />
+
+> Personel:
+<img width="2558" height="1438" alt="image" src="https://github.com/user-attachments/assets/65f7a046-4e91-4c4f-aa63-1be505138ac2" />
+
+> Pacjenci:
+<img width="2555" height="1429" alt="image" src="https://github.com/user-attachments/assets/fa784015-556a-4d59-92a2-d267dd9ed4ae" />
+
+## Diagramy
+
+<img width="3491" height="5007" alt="DiagramUML_SISMED" src="https://github.com/user-attachments/assets/fac6a51a-52c2-4541-b335-568d6a528045" />
+
+<img width="5861" height="7334" alt="DiagramBlokowy_SISMED" src="https://github.com/user-attachments/assets/71be570c-5e9a-4431-871e-6d167703530f" />
+
 ## Plany na przyszłość
 
 > powiadomienia e-mail dla pacjentów
@@ -290,6 +323,44 @@ Struktura projektu
 > rozbudowany system uprawnień
 
 > wersja webowa aplikacji
+
+## Wykorzystanie AI
+
+W projekcie korzystałem z AI jako narzędzia pomocniczego. AI wspierało mnie głównie przy analizie błędów, porządkowaniu wymagań, przygotowywaniu propozycji fragmentów kodu, poprawie interfejsu oraz tworzeniu dokumentacji.
+
+Samodzielnie określiłem temat projektu, wymagania systemu, strukturę modułów, wygląd aplikacji, kod (korzystając ze źródeł w internecie, google, przykładów innych projektów stworzonych przez innych ludzi w Windows Forms, korzystając też z podpowiedzi na zajęciach) oraz sposób działania najważniejszych funkcji.
+
+Przykładowe moje pytania do chata:
+
+> Super wygląda na stacjonarnym, natomiast na laptopie będę prezentował aplikację, ponadto będzie ona udostępniona na rzutniku i nie chciałbym żeby to się wykrzaczyło.
+ (znalazł mi rozwiązanie z problemem skalowania)
+
+> Po wpisaniu loginu i hasła w ogóle nie uruchamia się główna aplikacja i wywala błąd.
+  (w trakcie popełniłem błąd i pomógł mi go znaleźć)
+
+> Jak logicznie podzielić aplikację na moduły?
+
+> Jak uporządkować widok karty pacjenta, żeby dane osobowe i adres były czytelne?
+  (w trakcie niektóre fragmenty zaprojektowane przeze mnie źle się przeskalowały i przesunęły, pomógł mi to narpawić)
+
+> Jak ograniczyć pole PESEL do 11 cyfr? Jak ograniczyć numer telefonu do 9 cyfr?
+  (finalnie mi nie pomógł - dałem sobie spokój)
+
+> Jak zaprojektować lokalną bazę SQLite dla aplikacji do rejestracji wizyt lekarskich?
+
+> Jakie tabele powinny znaleźć się w bazie danych dla pacjentów, pracowników, lekarzy, wizyt, ostrzeżeń, notatek i dokumentów?
+
+> Jak automatycznie tworzyć bazę danych przy pierwszym uruchomieniu aplikacji?
+
+> Jak dodać dane testowe do aplikacji demonstracyjnej?
+
+> Jak bezpiecznie aktualizować dane pacjenta bez tworzenia duplikatu?
+
+> Jak poprawić skalowanie aplikacji Windows Forms na ekranie 2560x1440 i 1920x1080?
+
+> Jak sprawić, żeby panele nie nachodziły na siebie na mniejszym ekranie?
+
+Wykorzystane AI: Claude, CHAT GPT, Gemini
 
 ## Autor
 
