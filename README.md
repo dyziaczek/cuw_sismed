@@ -360,6 +360,8 @@ Przykładowe moje pytania do chata:
 
 > Jak sprawić, żeby panele nie nachodziły na siebie na mniejszym ekranie?
 
+> Pomóż mi stworzyć diagramUML i diagram blokowy
+
 Wykorzystane AI: Claude, CHAT GPT, Gemini
 
 ## Autor
